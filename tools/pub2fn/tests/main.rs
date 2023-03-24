@@ -145,7 +145,7 @@ def foo(val):
 
     let actual_steps = pub2fn::get_steps(
         root_dir.as_path(),
-        lsp_client,
+        &lsp_client,
         tree_sitter_python::language(),
         pub_query,
         hacky_query,
@@ -153,7 +153,7 @@ def foo(val):
     .await
     .expect("failed to get steps");
 
-    assert_eq!(expected_steps, actual_steps);
+    assert_eq!(vec![expected_steps], actual_steps);
 
     for handle in handles {
         handle.abort();
@@ -195,7 +195,7 @@ def foo():
     parser.set_language(tree_sitter_python::language()).unwrap();
     let tree = parser.parse(src, None).unwrap();
 
-    insta::assert_debug_snapshot!(pub2fn::get_query_result(src, tree.root_node(), &pub_query, 1),
+    insta::assert_debug_snapshot!(pub2fn::get_query_results(src, tree.root_node(), &pub_query, 1),
         @r###"
     [
         {Node call (2, 5) - (2, 12)},
@@ -203,7 +203,7 @@ def foo():
     "###
     );
 
-    insta::assert_debug_snapshot!(pub2fn::get_query_result(src, tree.root_node(), &hacky_query, 1),
+    insta::assert_debug_snapshot!(pub2fn::get_query_results(src, tree.root_node(), &hacky_query, 1),
         @r###"
     [
         {Node identifier (3, 13) - (3, 14)},

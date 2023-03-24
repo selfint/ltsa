@@ -1,8 +1,7 @@
 use anyhow::Result;
+use lsp_client::client::Client as LspClient;
 use lsp_types::{
-    notification::Initialized, request::HoverRequest, request::Initialize, HoverParams,
-    InitializeParams, InitializedParams, Position, TextDocumentIdentifier,
-    TextDocumentPositionParams, Url, WorkDoneProgressParams,
+    notification::Initialized, request::Initialize, InitializeParams, InitializedParams,
 };
 use std::{
     fs::DirEntry,
@@ -12,11 +11,11 @@ use tree_sitter::{Language, Node, Query, QueryCursor};
 
 pub async fn get_steps(
     root_dir: &Path,
-    lsp_client: lsp_client::client::Client,
+    lsp_client: &LspClient,
     language: Language,
     pub_query: (Query, u32),
     hacky_query: (Query, u32),
-) -> Result<Vec<(PathBuf, usize)>> {
+) -> Result<Vec<Vec<(PathBuf, u32)>>> {
     let init_resp = lsp_client
         .request::<Initialize>(InitializeParams::default())
         .await?
@@ -32,17 +31,37 @@ pub async fn get_steps(
         .notify::<Initialized>(InitializedParams {})
         .unwrap();
 
-    // let possible_call_locations = get_call_locations(root_dir, language, &hacky_query)?;
+    let pub_locations = get_query_locations(root_dir, language, &pub_query)?;
+    let hacky_locations = get_query_locations(root_dir, language, &hacky_query)?;
 
-    // dbg!(&possible_call_locations);
+    let mut paths = vec![];
+    for pub_location in &pub_locations {
+        for hacky_location in &hacky_locations {
+            if let Some(path) =
+                get_path(root_dir, lsp_client, language, hacky_location, pub_location)
+            {
+                paths.push(path);
+            }
+        }
+    }
 
+    Ok(paths)
+}
+
+fn get_path(
+    root_dir: &Path,
+    lsp_client: &LspClient,
+    language: Language,
+    hacky_location: &(PathBuf, u32, u32),
+    pub_location: &(PathBuf, u32, u32),
+) -> Option<Vec<(PathBuf, u32)>> {
     todo!()
 }
 
-fn get_call_locations(
+fn get_query_locations(
     root_dir: &Path,
     language: Language,
-    query: &Query,
+    query: &(Query, u32),
 ) -> Result<Vec<(PathBuf, u32, u32)>> {
     fn visit_dirs(dir: &Path, cb: &mut impl FnMut(&DirEntry)) -> std::io::Result<()> {
         if dir.is_dir() {
@@ -72,24 +91,21 @@ fn get_call_locations(
             .parse(&content, None)
             .expect("failed to parse content");
 
-        let mut query_curser = QueryCursor::new();
-        let captures = query_curser.captures(query, tree.root_node(), content.as_bytes());
+        let results = get_query_results(&content, tree.root_node(), &query.0, query.1);
 
-        for (q_match, index) in captures {
-            if index != 0 {
-                continue;
-            }
-
-            for capture in q_match.captures {
-                todo!()
-            }
+        for result in results {
+            locations.push((
+                dir.path(),
+                result.start_position().row as u32,
+                result.start_position().column as u32,
+            ));
         }
     })?;
 
     Ok(locations)
 }
 
-pub fn get_query_result<'a>(
+pub fn get_query_results<'a>(
     text: &str,
     root: tree_sitter::Node<'a>,
     query: &Query,
