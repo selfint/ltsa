@@ -64,7 +64,8 @@ fn build_src(src: &str) -> Result<(PathBuf, Vec<(PathBuf, usize)>)> {
                     (step_number, (src_file.path.clone(), line_number))
                 }),
         );
-        fs::write(src_file.path, src_file.content).expect("failed to write src file");
+        fs::write(root_dir.join(src_file.path), src_file.content)
+            .expect("failed to write src file");
     }
 
     let mut new_steps = vec![None; steps.len()];
