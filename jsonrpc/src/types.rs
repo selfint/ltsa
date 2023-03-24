@@ -1,7 +1,4 @@
-use std::{
-    error::Error,
-    fmt::{Debug, Display},
-};
+use std::fmt::{Debug, Display};
 
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +19,7 @@ pub struct Notification<Params> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[must_use = "this `Response`'s result may be a `JsonRpcError` variant, which should be handled"]
 pub struct Response<T, E> {
     pub jsonrpc: String,
     #[serde(flatten)]
@@ -31,6 +29,7 @@ pub struct Response<T, E> {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "lowercase")]
+#[must_use]
 pub enum JsonRpcResult<T, E> {
     Result(T),
     Error(JsonRpcError<E>),
