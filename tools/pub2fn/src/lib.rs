@@ -8,11 +8,14 @@ use std::{
     fs::DirEntry,
     path::{Path, PathBuf},
 };
+use tree_sitter::{Language, Node, Query, QueryCursor};
 
 pub async fn get_steps(
     root_dir: &Path,
-    fn_name: &str,
     lsp_client: lsp_client::client::Client,
+    language: Language,
+    pub_query: (Query, u32),
+    hacky_query: (Query, u32),
 ) -> Result<Vec<(PathBuf, usize)>> {
     let init_resp = lsp_client
         .request::<Initialize>(InitializeParams::default())
@@ -29,18 +32,18 @@ pub async fn get_steps(
         .notify::<Initialized>(InitializedParams {})
         .unwrap();
 
-    let possible_call_locations = get_string_locations(root_dir, fn_name)?;
+    // let possible_call_locations = get_call_locations(root_dir, language, &hacky_query)?;
 
-    dbg!(&possible_call_locations);
-
-    for (path, line, character) in possible_call_locations {
-        todo!("detect using tree sitter if location is a function call, and extract param identifiers");
-    }
+    // dbg!(&possible_call_locations);
 
     todo!()
 }
 
-fn get_string_locations(root_dir: &Path, string: &str) -> Result<Vec<(PathBuf, u32, u32)>> {
+fn get_call_locations(
+    root_dir: &Path,
+    language: Language,
+    query: &Query,
+) -> Result<Vec<(PathBuf, u32, u32)>> {
     fn visit_dirs(dir: &Path, cb: &mut impl FnMut(&DirEntry)) -> std::io::Result<()> {
         if dir.is_dir() {
             for entry in std::fs::read_dir(dir)? {
@@ -61,12 +64,54 @@ fn get_string_locations(root_dir: &Path, string: &str) -> Result<Vec<(PathBuf, u
         let content = String::from_utf8(std::fs::read(dir.path()).expect("failed to read file"))
             .expect("got non-utf8 file");
 
-        for (line_number, line) in content.lines().enumerate() {
-            for (col_number, _) in line.match_indices(string) {
-                locations.push((dir.path(), line_number as u32, col_number as u32));
+        let mut parser = tree_sitter::Parser::new();
+        parser
+            .set_language(language)
+            .expect("failed to set language on parser");
+        let tree = parser
+            .parse(&content, None)
+            .expect("failed to parse content");
+
+        let mut query_curser = QueryCursor::new();
+        let captures = query_curser.captures(query, tree.root_node(), content.as_bytes());
+
+        for (q_match, index) in captures {
+            if index != 0 {
+                continue;
+            }
+
+            for capture in q_match.captures {
+                todo!()
             }
         }
     })?;
 
     Ok(locations)
+}
+
+pub fn get_query_result<'a>(
+    text: &str,
+    root: tree_sitter::Node<'a>,
+    query: &Query,
+    capture_index: u32,
+) -> Vec<Node<'a>> {
+    let mut query_cursor = QueryCursor::new();
+    let captures = query_cursor.captures(query, root, text.as_bytes());
+
+    let mut nodes = vec![];
+
+    for (q_match, index) in captures {
+        if index != 0 {
+            continue;
+        }
+
+        for capture in q_match.captures {
+            if capture.index == capture_index {
+                dbg!(&text[capture.node.byte_range()]);
+                nodes.push(capture.node);
+            }
+        }
+    }
+
+    nodes
 }

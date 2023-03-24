@@ -20,7 +20,9 @@ tokio = { version = "1.26.0", features = [
     "sync",
     "time",
 ] }
+tree-sitter = "0.20.9"
 
 [dev-dependencies]
 insta = { version = "1.28.0", features = ["json"] }
 tempfile = "3.4.0"
+tree-sitter-python = "0.20.2"
