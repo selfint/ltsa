@@ -1,12 +1,8 @@
 use anyhow::Result;
-use jsonrpc::types::JsonRpcResult;
 use lsp_types::{
     notification::Initialized, request::Initialize, InitializeParams, InitializedParams,
 };
-use std::{
-    convert::Into,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 pub async fn get_steps(
     root_dir: &Path,
@@ -19,6 +15,10 @@ pub async fn get_steps(
         .result
         .as_result()
         .map_err(anyhow::Error::msg)?;
+
+    if init_resp.capabilities.references_provider.is_none() {
+        anyhow::bail!("lsp has no reference provider");
+    }
 
     lsp_client
         .notify::<Initialized>(InitializedParams {})
