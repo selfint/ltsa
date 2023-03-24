@@ -1,5 +1,5 @@
 ---
-source: lsp-client/tests/solidity-ls/main.rs
+source: lsp-client/tests/test_servers.rs
 expression: init_resp
 ---
 Ok(
