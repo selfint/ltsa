@@ -111,7 +111,7 @@ def foo(val):
     let stderr = child.stderr.take().unwrap();
     let (client, handles) = lsp_client::clients::stdio_client(stdin, stdout, stderr);
 
-    let actual_steps = pub2fn::get_steps(root_dir.as_path(), &["eval"], client)
+    let actual_steps = pub2fn::get_steps(root_dir.as_path(), "eval", client)
         .await
         .expect("failed to get steps");
 
