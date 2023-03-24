@@ -95,11 +95,11 @@ fn test_response_serialization() {
     insta::assert_compact_json_snapshot!(
         Response {
             jsonrpc: "2.0".to_string(),
-            result: JsonRpcResult::<(), _>::Error {
+            result: JsonRpcResult::<(), _>::Error(JsonRpcError {
                 code: -32601,
                 message: "Method not found".to_string(),
                 data: Some(vec!["Some", "data"])
-            },
+            }),
             id: None,
         },
         @r###"{"jsonrpc": "2.0", "error": {"code": -32601, "message": "Method not found", "data": ["Some", "data"]}, "id": null}"###
@@ -128,10 +128,11 @@ fn test_response_deserialization() {
     insta::assert_debug_snapshot!(
         serde_json::from_str::<Response<(), Vec<String>>>(r#"{"jsonrpc": "2.0", "error": {"code": -32601, "message": "Method not found", "data": ["Some", "data"]}, "id": null}"#),
         @r###"
-        Ok(
-            Response {
-                jsonrpc: "2.0",
-                result: Error {
+    Ok(
+        Response {
+            jsonrpc: "2.0",
+            result: Error(
+                JsonRpcError {
                     code: -32601,
                     message: "Method not found",
                     data: Some(
@@ -141,9 +142,10 @@ fn test_response_deserialization() {
                         ],
                     ),
                 },
-                id: None,
-            },
-        )
-        "###
+            ),
+            id: None,
+        },
+    )
+    "###
     );
 }

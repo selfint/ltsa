@@ -1,3 +1,8 @@
+use std::{
+    error::Error,
+    fmt::{Debug, Display},
+};
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -28,9 +33,42 @@ pub struct Response<T, E> {
 #[serde(rename_all = "lowercase")]
 pub enum JsonRpcResult<T, E> {
     Result(T),
-    Error {
-        code: i64,
-        message: String,
-        data: Option<E>,
-    },
+    Error(JsonRpcError<E>),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct JsonRpcError<E> {
+    pub code: i64,
+    pub message: String,
+    pub data: Option<E>,
+}
+
+impl<E: Debug> Display for JsonRpcError<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "[JsonRpcError] code: {} message: {}",
+            self.code, self.message
+        ))?;
+
+        if let Some(data) = &self.data {
+            f.write_fmt(format_args!("data: {:?}", data))?;
+        };
+
+        Ok(())
+    }
+}
+
+impl<T, E: Debug> From<JsonRpcResult<T, E>> for Result<T, JsonRpcError<E>> {
+    fn from(value: JsonRpcResult<T, E>) -> Self {
+        match value {
+            JsonRpcResult::Result(r) => Ok(r),
+            JsonRpcResult::Error(e) => Err(e),
+        }
+    }
+}
+
+impl<T, E: Debug> JsonRpcResult<T, E> {
+    pub fn as_result(self) -> Result<T, JsonRpcError<E>> {
+        self.into()
+    }
 }
