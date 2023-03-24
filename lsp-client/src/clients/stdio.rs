@@ -63,6 +63,9 @@ fn stdout_proxy(mut rx: BufReader<ChildStdout>, tx: UnboundedSender<String>) -> 
                 (["Content-Type:", content_type], Some(_), None) => {
                     next_content_type = Some(content_type.to_string())
                 }
+                (["Content-Type:", content_type, "charset=utf8"], Some(_), None) => {
+                    next_content_type = Some(content_type.to_string())
+                }
                 ([], Some(content_length), _) => {
                     let mut content = Vec::with_capacity(*content_length);
                     let mut bytes_left = *content_length;
@@ -77,7 +80,7 @@ fn stdout_proxy(mut rx: BufReader<ChildStdout>, tx: UnboundedSender<String>) -> 
                     next_content_length = None;
                     next_content_type = None;
                 }
-                _ => panic!("Got unexpected stdout"),
+                other => panic!("Got unexpected stdout: {:?}", other),
             };
         }
     })
