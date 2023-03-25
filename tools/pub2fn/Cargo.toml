@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.69"
+async-recursion = "1.0.4"
 jsonrpc = { path = "../../jsonrpc" }
 lsp-client = { path = "../../lsp-client" }
 lsp-types = "0.94.0"

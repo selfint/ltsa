@@ -1,3 +1,8 @@
+use lsp_types::{
+    notification::Initialized, request::Initialize, InitializeParams, InitializedParams, Location,
+    Position, TextDocumentIdentifier, TextDocumentPositionParams, Url,
+};
+use pub2fn::{get_query_results, LanguageProvider, LspMethod, Step};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -6,7 +11,7 @@ use tempfile::tempdir;
 use tokio::process::{Child, Command};
 
 use anyhow::Result;
-use tree_sitter::Query;
+use tree_sitter::{Node, Point, Query, QueryCursor, Tree, TreeCursor};
 
 fn build_src(src: &str) -> Result<(PathBuf, Vec<(PathBuf, usize)>)> {
     struct File {
@@ -88,12 +93,12 @@ fn start_python_language_server() -> Child {
         .expect("failed to start rust analyzer")
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn test_python() {
-    _test_python().await;
+    _test_python().await.unwrap();
 }
 
-async fn _test_python() {
+async fn _test_python() -> Result<()> {
     let src = r#"
 main.py @@@
 from util import foo
@@ -143,71 +148,243 @@ def foo(val):
         1,
     );
 
-    let actual_steps = pub2fn::get_steps(
+    let init_resp = lsp_client
+        .request::<Initialize>(InitializeParams {
+            root_uri: Some(Url::from_file_path(&root_dir).unwrap()),
+            ..Default::default()
+        })
+        .await?
+        .result
+        .as_result()
+        .map_err(anyhow::Error::msg)?;
+
+    if init_resp.capabilities.references_provider.is_none() {
+        anyhow::bail!("lsp has no reference provider");
+    }
+
+    lsp_client
+        .notify::<Initialized>(InitializedParams {})
+        .unwrap();
+
+    let actual_steps = pub2fn::get_all_paths(
         root_dir.as_path(),
         &lsp_client,
         tree_sitter_python::language(),
         pub_query,
         hacky_query,
+        PythonLanguageProvider,
     )
     .await
     .expect("failed to get steps");
 
-    assert_eq!(vec![expected_steps], actual_steps);
+    let debug_steps = actual_steps
+        .into_iter()
+        .map(|steps| {
+            steps
+                .into_iter()
+                .map(|s| {
+                    let path = s.path;
+                    let source = String::from_utf8(std::fs::read(&path).unwrap()).unwrap();
+                    let line = source.lines().nth(s.start.0 as usize).unwrap().to_string();
+                    let pointer = " ".repeat(s.start.1 as usize) + "^";
+
+                    (path, line, pointer)
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    insta::assert_debug_snapshot!(debug_steps,
+        @""
+    );
 
     for handle in handles {
         handle.abort();
     }
 
     fs::remove_dir_all(root_dir).expect("failed to delete src");
+
+    Ok(())
 }
 
-#[test]
-fn test() {
-    let src = r#"
-def foo():
-	a = input()
-	return eval(a)
+fn step_from_node(path: PathBuf, node: Node) -> Step {
+    let start = node.start_position();
+    let end = node.end_position();
 
-"#;
-    let pub_query = Query::new(
-        tree_sitter_python::language(),
-        r#"
-        (call
-            function: (identifier) @ident
-            (#match? @ident "input")
-        ) @pub"#,
-    )
-    .unwrap();
+    let start = (start.row as u32, start.column as u32);
+    let end = (end.row as u32, end.column as u32);
 
-    let hacky_query = Query::new(
-        tree_sitter_python::language(),
-        r#"
-        (call
-            function: (identifier) @fn
-            (#match? @fn "eval")
-            arguments: (argument_list (identifier) @hacky)
-        )"#,
-    )
-    .unwrap();
+    Step::new(path, start, end)
+}
 
+struct PythonLanguageProvider;
+impl LanguageProvider for PythonLanguageProvider {
+    fn get_next_step(&self, step: &Step) -> Option<(pub2fn::LspMethod, Step)> {
+        let tree = get_tree(step);
+        let node = get_node(step, tree.root_node());
+
+        match (node.kind(), node.parent().map(|p| p.kind())) {
+            ("call", _) => todo!("get references"),
+            ("identifier", None) => todo!("got identifier without parent, global?"),
+            ("identifier", Some("parameters")) => {
+                let arg_list = node.parent().unwrap();
+                let fn_def = arg_list.parent().unwrap();
+                let fn_name = fn_def.child_by_field_name("name").unwrap();
+                let next_step = step_from_node(step.path.clone(), fn_name);
+
+                Some((LspMethod::References, next_step))
+            }
+            ("identifier", Some("argument_list")) => Some((LspMethod::Definition, step.clone())),
+            ("identifier", Some("function_definition")) => {
+                Some((LspMethod::References, step.clone()))
+            }
+            ("identifier", Some("call")) => {
+                let parent = node.parent().unwrap();
+
+                let source = std::fs::read(&step.path).unwrap();
+                let text = parent.utf8_text(&source).unwrap();
+
+                let query = Query::new(
+                    tree_sitter_python::language(),
+                    "(call arguments: (argument_list) @args)",
+                )
+                .unwrap();
+
+                let args_list = get_query_results(text, parent, &query, 0)[0];
+
+                let mut cursor = tree.walk();
+
+                // todo keep track of arg correctly
+                let arg = args_list.named_children(&mut cursor).next().unwrap();
+
+                let next_step = step_from_node(step.path.clone(), arg);
+
+                Some((LspMethod::Definition, next_step))
+            }
+            ("identifier", Some("assignment")) => {
+                let parent = node.parent().unwrap();
+                // this step is being assigned a value
+                if parent.child_by_field_name("left").unwrap() == node {
+                    let next_node = parent.child_by_field_name("right").unwrap();
+                    let next_step = step_from_node(step.path.clone(), next_node);
+
+                    Some((LspMethod::Nop, next_step))
+                }
+                // a value is being assigned as this step
+                else {
+                    let next_node = parent.child_by_field_name("left").unwrap();
+                    let next_step = step_from_node(step.path.clone(), next_node);
+
+                    Some((LspMethod::References, next_step))
+                }
+            }
+            _ => {
+                eprintln!(
+                    "unexpected node kind: {:?} / parent: {:?}, content:\n\n{}\n\n",
+                    node.kind(),
+                    node.parent(),
+                    {
+                        let content =
+                            String::from_utf8(std::fs::read(&step.path).unwrap()).unwrap();
+                        let line = step.start.0;
+                        content.lines().nth(line as usize).unwrap().to_string()
+                    }
+                );
+
+                None
+            }
+        }
+    }
+
+    fn get_definition_parents(&self, response: lsp_types::GotoDefinitionResponse) -> Vec<Step> {
+        match response {
+            lsp_types::GotoDefinitionResponse::Scalar(location) => {
+                vec![location_to_step(location)]
+            }
+            lsp_types::GotoDefinitionResponse::Array(locations) => {
+                locations.into_iter().map(location_to_step).collect()
+            }
+            lsp_types::GotoDefinitionResponse::Link(_) => todo!("what is link?"),
+        }
+    }
+
+    fn get_references_parents(&self, response: Vec<lsp_types::Location>) -> Vec<Step> {
+        response.into_iter().map(location_to_step).collect()
+    }
+}
+
+fn location_to_step(location: Location) -> Step {
+    let path = location
+        .uri
+        .to_file_path()
+        .expect("failed to get uri file path");
+    let start = location.range.start;
+    let start = (start.line, start.character);
+    let end = location.range.end;
+    let end = (end.line, end.character);
+
+    Step::new(path, start, end)
+}
+
+fn get_tree(step: &Step) -> Tree {
     let mut parser = tree_sitter::Parser::new();
-    parser.set_language(tree_sitter_python::language()).unwrap();
-    let tree = parser.parse(src, None).unwrap();
+    parser
+        .set_language(tree_sitter_python::language())
+        .expect("failed to set language");
 
-    insta::assert_debug_snapshot!(pub2fn::get_query_results(src, tree.root_node(), &pub_query, 1),
-        @r###"
-    [
-        {Node call (2, 5) - (2, 12)},
-    ]
-    "###
-    );
+    let content = String::from_utf8(std::fs::read(&step.path).unwrap()).unwrap();
 
-    insta::assert_debug_snapshot!(pub2fn::get_query_results(src, tree.root_node(), &hacky_query, 1),
-        @r###"
-    [
-        {Node identifier (3, 13) - (3, 14)},
-    ]
-    "###
-    );
+    parser
+        .parse(&content, None)
+        .expect("failed to parse content")
 }
+
+fn get_node<'a>(step: &Step, root: Node<'a>) -> Node<'a> {
+    root.descendant_for_point_range(
+        Point {
+            row: step.start.0 as usize,
+            column: step.start.1 as usize,
+        },
+        Point {
+            row: step.end.0 as usize,
+            column: step.end.1 as usize,
+        },
+    )
+    .expect("failed to get node at location range")
+}
+
+// let dst_parents = match dst.kind {
+//     StepKind::Variable => {
+//         let parent = lsp_client
+//             .request::<GotoDefinition>(GotoDefinitionParams {
+//                 text_document_position_params: dst.text_document_position_params.clone(),
+//                 work_done_progress_params: WorkDoneProgressParams {
+//                     work_done_token: None,
+//                 },
+//                 partial_result_params: PartialResultParams {
+//                     partial_result_token: None,
+//                 },
+//             })
+//             .await?
+//             .result
+//             .as_result()
+//             .map_err(anyhow::Error::msg)?;
+
+//         match parent {
+//             Some(parent) => match parent {
+//                 GotoDefinitionResponse::Scalar(location) => {
+//                     let step = Step::from_location(location, kind_resolver_fn);
+//                     vec![step]
+//                 }
+//                 GotoDefinitionResponse::Array(locations) => locations
+//                     .into_iter()
+//                     .map(|location| Step::from_location(location, kind_resolver_fn))
+//                     .collect(),
+//                 GotoDefinitionResponse::Link(_) => todo!("what is link?"),
+//             },
+//             None => return Ok(None),
+//         }
+//     }
+//     StepKind::Parameter => todo!("got parameter"),
+//     StepKind::Function => todo!(),
+// };
