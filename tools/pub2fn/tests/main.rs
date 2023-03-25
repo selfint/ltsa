@@ -183,8 +183,8 @@ def foo(val):
             steps
                 .into_iter()
                 .map(|s| {
-                    let path = s.path;
-                    let source = String::from_utf8(std::fs::read(&path).unwrap()).unwrap();
+                    let path = s.path.file_name().unwrap().to_str().unwrap().to_string();
+                    let source = String::from_utf8(std::fs::read(&s.path).unwrap()).unwrap();
                     let line = source.lines().nth(s.start.0 as usize).unwrap().to_string();
                     let pointer = " ".repeat(s.start.1 as usize) + "^";
 
@@ -199,27 +199,27 @@ def foo(val):
     [
         [
             (
-                "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpA2u3AA/util.py",
+                "util.py",
                 "        return eval(val) # step:3",
                 "                    ^",
             ),
             (
-                "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpA2u3AA/util.py",
+                "util.py",
                 "def foo(val):",
                 "        ^",
             ),
             (
-                "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpA2u3AA/main.py",
+                "main.py",
                 "foo(a) # step:1",
                 "^",
             ),
             (
-                "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpA2u3AA/main.py",
+                "main.py",
                 "a = input() # step:0",
                 "^",
             ),
             (
-                "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpA2u3AA/main.py",
+                "main.py",
                 "a = input() # step:0",
                 "    ^",
             ),
