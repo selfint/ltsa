@@ -20,7 +20,7 @@ pub trait LanguageProvider: Send + Sync {
         &self,
         step: &Step,
         previous_step: Option<&Step>,
-    ) -> Option<(LspMethod, Step, Vec<Step>)>;
+    ) -> Option<Vec<(LspMethod, Step, Vec<Step>)>>;
 }
 
 pub async fn get_all_paths(
@@ -65,6 +65,7 @@ pub struct Step {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum StepContext {
     ParameterIndex(usize),
+    GetReturnValues,
 }
 
 impl Step {
@@ -90,78 +91,82 @@ async fn get_steps(
         return Ok(Some(steps));
     }
 
-    let Some((method, next_step, dst_to_next)) = language_provider.get_next_step(dst, steps.last()) else {
+    let Some(next_steps) = language_provider.get_next_step(dst, steps.last()) else {
         return Ok(None);
     };
 
-    let parents: Vec<Step> = match method {
-        LspMethod::Nop => vec![next_step.clone()],
-        LspMethod::Definition => {
-            let definitions = lsp_client
-                .request::<GotoDefinition>(GotoDeclarationParams {
-                    text_document_position_params: TextDocumentPositionParams::from(&next_step),
-                    work_done_progress_params: WorkDoneProgressParams {
-                        work_done_token: None,
-                    },
-                    partial_result_params: PartialResultParams {
-                        partial_result_token: None,
-                    },
-                })
-                .await?
-                .result
-                .as_result()
-                .map_err(anyhow::Error::msg)?
-                .expect("failed to get definition");
+    for (method, next_step, steps_from_dst_to_next) in next_steps {
+        let mut next_targets = vec![];
+        match method {
+            LspMethod::Nop => next_targets.push(next_step),
+            LspMethod::Definition => {
+                let definitions = lsp_client
+                    .request::<GotoDefinition>(GotoDeclarationParams {
+                        text_document_position_params: TextDocumentPositionParams::from(&next_step),
+                        work_done_progress_params: WorkDoneProgressParams {
+                            work_done_token: None,
+                        },
+                        partial_result_params: PartialResultParams {
+                            partial_result_token: None,
+                        },
+                    })
+                    .await?
+                    .result
+                    .as_result()
+                    .map_err(anyhow::Error::msg)?
+                    .expect("failed to get definition");
 
-            match definitions {
-                lsp_types::GotoDefinitionResponse::Scalar(location) => {
-                    vec![location_to_step(location)]
-                }
-                lsp_types::GotoDefinitionResponse::Array(locations) => {
-                    locations.into_iter().map(location_to_step).collect()
-                }
-                lsp_types::GotoDefinitionResponse::Link(_) => todo!("what is link?"),
+                match definitions {
+                    lsp_types::GotoDefinitionResponse::Scalar(location) => {
+                        next_targets.push(location_to_step(location));
+                    }
+                    lsp_types::GotoDefinitionResponse::Array(locations) => {
+                        next_targets.extend(locations.into_iter().map(location_to_step))
+                    }
+                    lsp_types::GotoDefinitionResponse::Link(_) => todo!("what is link?"),
+                };
             }
-        }
-        LspMethod::References => {
-            let response = lsp_client
-                .request::<References>(ReferenceParams {
-                    text_document_position: TextDocumentPositionParams::from(&next_step),
-                    work_done_progress_params: WorkDoneProgressParams {
-                        work_done_token: None,
-                    },
-                    partial_result_params: PartialResultParams {
-                        partial_result_token: None,
-                    },
-                    context: ReferenceContext {
-                        include_declaration: false,
-                    },
-                })
+            LspMethod::References => {
+                let references = lsp_client
+                    .request::<References>(ReferenceParams {
+                        text_document_position: TextDocumentPositionParams::from(&next_step),
+                        work_done_progress_params: WorkDoneProgressParams {
+                            work_done_token: None,
+                        },
+                        partial_result_params: PartialResultParams {
+                            partial_result_token: None,
+                        },
+                        context: ReferenceContext {
+                            include_declaration: false,
+                        },
+                    })
+                    .await?
+                    .result
+                    .as_result()
+                    .map_err(anyhow::Error::msg)?
+                    .expect("failed to get references");
+
+                next_targets.extend(references.into_iter().map(location_to_step))
+            }
+        };
+        dbg!(next_targets.len());
+
+        let mut new_steps = steps.clone();
+        new_steps.extend(steps_from_dst_to_next);
+
+        for next_target in &next_targets {
+            if !steps.contains(next_target) && next_target != dst {
+                if let Some(next_step) = get_steps(
+                    lsp_client,
+                    language_provider,
+                    src,
+                    next_target,
+                    new_steps.clone(),
+                )
                 .await?
-                .result
-                .as_result()
-                .map_err(anyhow::Error::msg)?
-                .expect("failed to get references");
-
-            response.into_iter().map(location_to_step).collect()
-        }
-    };
-
-    let mut new_steps = steps.clone();
-    new_steps.extend(dst_to_next);
-
-    for new_dst in &parents {
-        if !steps.contains(new_dst) && new_dst != dst {
-            if let Some(next_step) = get_steps(
-                lsp_client,
-                language_provider,
-                src,
-                new_dst,
-                new_steps.clone(),
-            )
-            .await?
-            {
-                return Ok(Some(next_step));
+                {
+                    return Ok(Some(next_step));
+                }
             }
         }
     }

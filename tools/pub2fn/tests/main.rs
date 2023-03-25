@@ -103,7 +103,12 @@ main.py @@@
 from util import foo
 
 a = input() # step:0
-foo(1, a) # step:1
+
+def bar(v):
+    return v
+
+b = bar(a)
+foo(1, b) # step:1
 ###end###
 util.py @@@
 def foo(dummy, val):
@@ -244,7 +249,12 @@ def foo(dummy, val):
                     "from util import foo",
                     "",
                     "a = input() # step:0",
-                    "foo(1, a) # step:1",
+                    "",
+                    "def bar(v):",
+                    "    return v",
+                    "",
+                    "b = bar(a)",
+                    "foo(1, b) # step:1",
                     "       ^",
                 ],
             ),
@@ -255,8 +265,13 @@ def foo(dummy, val):
                     "from util import foo",
                     "",
                     "a = input() # step:0",
+                    "",
+                    "def bar(v):",
+                    "    return v",
+                    "",
+                    "b = bar(a)",
                     "^",
-                    "foo(1, a) # step:1",
+                    "foo(1, b) # step:1",
                 ],
             ),
             (
@@ -266,8 +281,141 @@ def foo(dummy, val):
                     "from util import foo",
                     "",
                     "a = input() # step:0",
-                    "    ^",
-                    "foo(1, a) # step:1",
+                    "",
+                    "def bar(v):",
+                    "    return v",
+                    "",
+                    "b = bar(a)",
+                    "    ^ context: GetReturnValues",
+                    "foo(1, b) # step:1",
+                ],
+            ),
+            (
+                "main.py",
+                [
+                    "",
+                    "from util import foo",
+                    "",
+                    "a = input() # step:0",
+                    "",
+                    "def bar(v):",
+                    "    return v",
+                    "    ^ context: GetReturnValues",
+                    "",
+                    "b = bar(a)",
+                    "foo(1, b) # step:1",
+                ],
+            ),
+            (
+                "main.py",
+                [
+                    "",
+                    "from util import foo",
+                    "",
+                    "a = input() # step:0",
+                    "",
+                    "def bar(v):",
+                    "    return v",
+                    "           ^",
+                    "",
+                    "b = bar(a)",
+                    "foo(1, b) # step:1",
+                ],
+            ),
+            (
+                "main.py",
+                [
+                    "",
+                    "from util import foo",
+                    "",
+                    "a = input() # step:0",
+                    "",
+                    "def bar(v):",
+                    "    return v",
+                    "           ^",
+                    "",
+                    "b = bar(a)",
+                    "foo(1, b) # step:1",
+                ],
+            ),
+            (
+                "main.py",
+                [
+                    "",
+                    "from util import foo",
+                    "",
+                    "a = input() # step:0",
+                    "",
+                    "def bar(v):",
+                    "        ^",
+                    "    return v",
+                    "",
+                    "b = bar(a)",
+                    "foo(1, b) # step:1",
+                ],
+            ),
+            (
+                "main.py",
+                [
+                    "",
+                    "from util import foo",
+                    "",
+                    "a = input() # step:0",
+                    "",
+                    "def bar(v):",
+                    "    ^ context: ParameterIndex(0)",
+                    "    return v",
+                    "",
+                    "b = bar(a)",
+                    "foo(1, b) # step:1",
+                ],
+            ),
+            (
+                "main.py",
+                [
+                    "",
+                    "from util import foo",
+                    "",
+                    "a = input() # step:0",
+                    "",
+                    "def bar(v):",
+                    "    ^ context: ParameterIndex(0)",
+                    "    return v",
+                    "",
+                    "b = bar(a)",
+                    "foo(1, b) # step:1",
+                ],
+            ),
+            (
+                "main.py",
+                [
+                    "",
+                    "from util import foo",
+                    "",
+                    "a = input() # step:0",
+                    "",
+                    "def bar(v):",
+                    "    return v",
+                    "",
+                    "b = bar(a)",
+                    "        ^",
+                    "foo(1, b) # step:1",
+                ],
+            ),
+            (
+                "main.py",
+                [
+                    "",
+                    "from util import foo",
+                    "",
+                    "a = input() # step:0",
+                    "^",
+                    "",
+                    "def bar(v):",
+                    "    return v",
+                    "",
+                    "b = bar(a)",
+                    "foo(1, b) # step:1",
                 ],
             ),
         ],
@@ -300,7 +448,7 @@ impl LanguageProvider for PythonLanguageProvider {
         &self,
         step: &Step,
         previous_step: Option<&Step>,
-    ) -> Option<(pub2fn::LspMethod, Step, Vec<Step>)> {
+    ) -> Option<Vec<(pub2fn::LspMethod, Step, Vec<Step>)>> {
         let tree = get_tree(step);
         let node = get_node(step, tree.root_node());
 
@@ -315,8 +463,12 @@ impl LanguageProvider for PythonLanguageProvider {
             (get_step_line(step), " ".repeat(step.start.1 as usize) + "^")
         );
 
-        match (node.kind(), node.parent().map(|p| p.kind())) {
-            ("identifier", Some("parameters")) => {
+        match (
+            node.kind(),
+            node.parent().map(|p| p.kind()),
+            previous_step.and_then(|p| p.context.as_ref()),
+        ) {
+            ("identifier", Some("parameters"), _) => {
                 let arg_list = node.parent().unwrap();
                 let fn_def = arg_list.parent().unwrap();
                 let fn_name = fn_def.child_by_field_name("name").unwrap();
@@ -333,17 +485,21 @@ impl LanguageProvider for PythonLanguageProvider {
 
                 dbg!("got parameter, finding references to containing method (added parameter index context)");
 
-                Some((
+                Some(vec![(
                     LspMethod::References,
                     fn_step.clone(),
                     vec![param_step, fn_step],
-                ))
+                )])
             }
-            ("identifier", Some("argument_list")) => {
+            ("identifier", Some("argument_list"), _) => {
                 dbg!("got argument, finding where it is defined");
-                Some((LspMethod::Definition, step.clone(), vec![step.clone()]))
+                Some(vec![(
+                    LspMethod::Definition,
+                    step.clone(),
+                    vec![step.clone()],
+                )])
             }
-            ("identifier", Some("function_definition")) => {
+            ("identifier", Some("function_definition"), Some(StepContext::ParameterIndex(_))) => {
                 let mut next_step = step.clone();
                 next_step.context = previous_step
                     .expect("got fn def without previous step")
@@ -351,9 +507,65 @@ impl LanguageProvider for PythonLanguageProvider {
                     .clone();
 
                 dbg!("got function definition, finding where it is referenced");
-                Some((LspMethod::References, next_step.clone(), vec![next_step]))
+                Some(vec![(
+                    LspMethod::References,
+                    next_step.clone(),
+                    vec![next_step],
+                )])
             }
-            ("identifier", Some("call")) => {
+            ("identifier", Some("function_definition"), Some(StepContext::GetReturnValues)) => {
+                let parent = node.parent().unwrap();
+
+                let source = std::fs::read(&step.path).unwrap();
+                let text = parent.utf8_text(&source).unwrap();
+
+                let query =
+                    Query::new(tree_sitter_python::language(), "(return_statement) @return")
+                        .unwrap();
+
+                let return_values = get_query_results(text, parent, &query, 0);
+
+                dbg!(&return_values);
+
+                dbg!("got call, finding return values");
+                Some(
+                    return_values
+                        .into_iter()
+                        .map(|return_value| {
+                            let mut next_step = step_from_node(step.path.clone(), return_value);
+                            next_step.context = Some(StepContext::GetReturnValues);
+                            (
+                                LspMethod::Nop,
+                                step_from_node(step.path.clone(), return_value),
+                                vec![next_step],
+                            )
+                        })
+                        .collect(),
+                )
+            }
+            ("return_statement", _, Some(StepContext::GetReturnValues)) => {
+                let mut cursor = tree.walk();
+                let mut next_targets = vec![];
+                for child in node.named_children(&mut cursor) {
+                    dbg!(child, child.to_sexp());
+                    let step = step_from_node(step.path.clone(), child);
+                    next_targets.push((LspMethod::Nop, step.clone(), vec![step]));
+                }
+                if next_targets.is_empty() {
+                    None
+                } else {
+                    Some(next_targets)
+                }
+            }
+            ("identifier", Some("return_statement"), _) => {
+                dbg!("got return statement, finding where it is defined");
+                Some(vec![(
+                    LspMethod::Definition,
+                    step.clone(),
+                    vec![step.clone()],
+                )])
+            }
+            ("identifier", Some("call"), Some(StepContext::ParameterIndex(index))) => {
                 let parent = node.parent().unwrap();
 
                 let source = std::fs::read(&step.path).unwrap();
@@ -368,52 +580,49 @@ impl LanguageProvider for PythonLanguageProvider {
                 let args_list = get_query_results(text, parent, &query, 0)[0];
 
                 let mut cursor = tree.walk();
-
-                let Some(StepContext::ParameterIndex(index)) = previous_step
-                    .expect("got call without previous step")
-                    .context else {
-                        panic!("invalid context");
-                    };
-
-                let arg = args_list.named_children(&mut cursor).nth(index).unwrap();
+                let arg = args_list.named_children(&mut cursor).nth(*index).unwrap();
                 let next_step = step_from_node(step.path.clone(), arg);
 
                 dbg!("got call, finding where parameter passed to call is defined");
-                Some((LspMethod::Definition, next_step.clone(), vec![next_step]))
+                Some(vec![(
+                    LspMethod::Definition,
+                    next_step.clone(),
+                    vec![next_step],
+                )])
             }
-            ("identifier", Some("assignment")) => {
-                let parent = node.parent().unwrap();
+            ("identifier", Some("assignment"), _)
+                if node.parent().unwrap().child_by_field_name("left").unwrap() == node =>
+            {
+                let next_node = node.parent().unwrap().child_by_field_name("right").unwrap();
+                let next_step = step_from_node(step.path.clone(), next_node);
 
-                // this step is being assigned a value
-                if parent.child_by_field_name("left").unwrap() == node {
-                    let next_node = parent.child_by_field_name("right").unwrap();
-                    let next_step = step_from_node(step.path.clone(), next_node);
-
-                    dbg!("got assignment, next step is the assigned value");
-                    Some((
-                        LspMethod::Nop,
-                        next_step.clone(),
-                        vec![step.clone(), next_step],
-                    ))
-                }
-                // a value is being assigned as this step
-                else {
-                    let next_node = parent.child_by_field_name("left").unwrap();
-                    let next_step = step_from_node(step.path.clone(), next_node);
-
-                    dbg!("got aliased, finding references of new alias");
-                    Some((
-                        LspMethod::References,
-                        next_step.clone(),
-                        vec![step.clone(), next_step],
-                    ))
+                dbg!("got assignment, next step is the assigned value");
+                Some(vec![(LspMethod::Nop, next_step, vec![step.clone()])])
+            }
+            (rhs_kind, Some("assignment"), _)
+                if node.parent().unwrap().child_by_field_name("right").unwrap() == node =>
+            {
+                dbg!(rhs_kind);
+                match rhs_kind {
+                    "call" => {
+                        dbg!("got assigned to output of call, getting return value");
+                        let mut next_step = step.clone();
+                        next_step.context = Some(StepContext::GetReturnValues);
+                        Some(vec![(
+                            LspMethod::Definition,
+                            next_step.clone(),
+                            vec![next_step],
+                        )])
+                    }
+                    other => todo!("got other: {:?}", other),
                 }
             }
             _ => {
                 eprintln!(
-                    "unexpected node kind: {:?} / parent: {:?}, line:\n\n{}\n\n",
+                    "unexpected node kind: {:?} / parent: {:?} / context: {:?}, line:\n\n{}\n\n",
                     node.kind(),
-                    node.parent(),
+                    node.parent().map(|p| p.kind()),
+                    step.context,
                     get_step_line(step)
                 );
                 dbg!("-------------------------------");
