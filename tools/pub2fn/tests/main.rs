@@ -1,8 +1,7 @@
 use lsp_types::{
-    notification::Initialized, request::Initialize, InitializeParams, InitializedParams, Location,
-    Position, TextDocumentIdentifier, TextDocumentPositionParams, Url,
+    notification::Initialized, request::Initialize, InitializeParams, InitializedParams, Url,
 };
-use pub2fn::{get_query_results, LanguageProvider, LspMethod, Step};
+use pub2fn::{get_query_results, LanguageProvider, LspMethod, Step, StepContext};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -11,7 +10,7 @@ use tempfile::tempdir;
 use tokio::process::{Child, Command};
 
 use anyhow::Result;
-use tree_sitter::{Node, Point, Query, QueryCursor, Tree, TreeCursor};
+use tree_sitter::{Node, Point, Query, Tree};
 
 fn build_src(src: &str) -> Result<(PathBuf, Vec<(PathBuf, usize)>)> {
     struct File {
@@ -104,16 +103,17 @@ main.py @@@
 from util import foo
 
 a = input() # step:0
-foo(a) # step:1
+foo(1, a) # step:1
 ###end###
 util.py @@@
-def foo(val):
+def foo(dummy, val):
     if val != "token": # step:2
         return eval(val) # step:3
 ###end###
         "#;
 
     let (root_dir, expected_steps) = build_src(src).expect("failed to build src");
+    dbg!(&root_dir);
 
     let mut child = start_python_language_server();
     let stdin = child.stdin.take().unwrap();
@@ -185,10 +185,19 @@ def foo(val):
                 .map(|s| {
                     let path = s.path.file_name().unwrap().to_str().unwrap().to_string();
                     let source = String::from_utf8(std::fs::read(&s.path).unwrap()).unwrap();
-                    let line = source.lines().nth(s.start.0 as usize).unwrap().to_string();
-                    let pointer = " ".repeat(s.start.1 as usize) + "^";
+                    let mut new_lines = vec![];
+                    for (i, line) in source.lines().enumerate() {
+                        new_lines.push(line.to_string());
+                        if i == s.start.0 as usize {
+                            let mut pointer = " ".repeat(s.start.1 as usize) + "^";
+                            if let Some(context) = &s.context {
+                                pointer += &format!(" context: {:?}", context);
+                            }
+                            new_lines.push(pointer);
+                        }
+                    }
 
-                    (path, line, pointer)
+                    (path, new_lines)
                 })
                 .collect::<Vec<_>>()
         })
@@ -200,28 +209,45 @@ def foo(val):
         [
             (
                 "util.py",
-                "        return eval(val) # step:3",
-                "                    ^",
+                [
+                    "",
+                    "def foo(dummy, val):",
+                    "    if val != \"token\": # step:2",
+                    "        return eval(val) # step:3",
+                    "                    ^",
+                ],
             ),
             (
                 "util.py",
-                "def foo(val):",
-                "        ^",
+                [
+                    "",
+                    "def foo(dummy, val):",
+                    "               ^ context: ParameterIndex(1)",
+                    "    if val != \"token\": # step:2",
+                    "        return eval(val) # step:3",
+                ],
             ),
             (
                 "main.py",
-                "foo(a) # step:1",
-                "^",
+                [
+                    "",
+                    "from util import foo",
+                    "",
+                    "a = input() # step:0",
+                    "foo(1, a) # step:1",
+                    "       ^",
+                ],
             ),
             (
                 "main.py",
-                "a = input() # step:0",
-                "^",
-            ),
-            (
-                "main.py",
-                "a = input() # step:0",
-                "    ^",
+                [
+                    "",
+                    "from util import foo",
+                    "",
+                    "a = input() # step:0",
+                    "    ^",
+                    "foo(1, a) # step:1",
+                ],
             ),
         ],
     ]
@@ -232,7 +258,7 @@ def foo(val):
         handle.abort();
     }
 
-    fs::remove_dir_all(root_dir).expect("failed to delete src");
+    // fs::remove_dir_all(root_dir).expect("failed to delete src");
 
     Ok(())
 }
@@ -249,24 +275,60 @@ fn step_from_node(path: PathBuf, node: Node) -> Step {
 
 struct PythonLanguageProvider;
 impl LanguageProvider for PythonLanguageProvider {
-    fn get_next_step(&self, step: &Step) -> Option<(pub2fn::LspMethod, Step)> {
+    fn get_next_step(
+        &self,
+        step: &Step,
+        previous_step: Option<&Step>,
+    ) -> Option<(pub2fn::LspMethod, Step, Vec<Step>)> {
         let tree = get_tree(step);
         let node = get_node(step, tree.root_node());
 
+        dbg!("-------------------------------");
+
+        dbg!(
+            (
+                &previous_step.map(get_step_line),
+                node.kind(),
+                node.parent().unwrap().kind()
+            ),
+            (get_step_line(step), " ".repeat(step.start.1 as usize) + "^")
+        );
+
         match (node.kind(), node.parent().map(|p| p.kind())) {
-            ("call", _) => todo!("get references"),
-            ("identifier", None) => todo!("got identifier without parent, global?"),
             ("identifier", Some("parameters")) => {
                 let arg_list = node.parent().unwrap();
                 let fn_def = arg_list.parent().unwrap();
                 let fn_name = fn_def.child_by_field_name("name").unwrap();
-                let next_step = step_from_node(step.path.clone(), fn_name);
 
-                Some((LspMethod::References, next_step))
+                let mut cursor = tree.walk();
+                let index = arg_list
+                    .named_children(&mut cursor)
+                    .position(|arg| arg == node)
+                    .expect("failed to find parameter index");
+
+                let mut param_step = step.clone();
+                param_step.context = Some(StepContext::ParameterIndex(index));
+                let fn_step = step_from_node(step.path.clone(), fn_name);
+
+                dbg!("got parameter, finding references to containing method (added parameter index context)");
+
+                // if you want the fn step to count, move the param context to to the fn step
+                // and add it to the dst_to_next vec (like this    V , fn_step)
+                Some((LspMethod::References, fn_step, vec![param_step]))
             }
-            ("identifier", Some("argument_list")) => Some((LspMethod::Definition, step.clone())),
+            ("identifier", Some("argument_list")) => {
+                dbg!("got argument, finding where it is defined");
+                Some((LspMethod::Definition, step.clone(), vec![step.clone()]))
+            }
             ("identifier", Some("function_definition")) => {
-                Some((LspMethod::References, step.clone()))
+                let mut next_step = step.clone();
+                next_step.context = previous_step
+                    .expect("got fn def without previous step")
+                    .context
+                    .clone();
+
+                dbg!("got function definition, finding where it is referenced");
+                Some((LspMethod::References, next_step.clone(), vec![next_step]))
             }
             ("identifier", Some("call")) => {
                 let parent = node.parent().unwrap();
@@ -284,47 +346,57 @@ impl LanguageProvider for PythonLanguageProvider {
 
                 let mut cursor = tree.walk();
 
-                // todo keep track of arg correctly
-                let arg = args_list.named_children(&mut cursor).next().unwrap();
+                let Some(StepContext::ParameterIndex(index)) = previous_step
+                    .expect("got call without previous step")
+                    .context else {
+                        panic!("invalid context");
+                    };
 
+                let arg = args_list.named_children(&mut cursor).nth(index).unwrap();
                 let next_step = step_from_node(step.path.clone(), arg);
 
-                Some((LspMethod::Definition, next_step))
+                dbg!("got call, finding where parameter passed to call is defined");
+                Some((LspMethod::Definition, next_step.clone(), vec![next_step]))
             }
             ("identifier", Some("assignment")) => {
                 let parent = node.parent().unwrap();
+
                 // this step is being assigned a value
                 if parent.child_by_field_name("left").unwrap() == node {
                     let next_node = parent.child_by_field_name("right").unwrap();
                     let next_step = step_from_node(step.path.clone(), next_node);
 
-                    Some((LspMethod::Nop, next_step))
+                    dbg!("got assignment, next step is the assigned value");
+                    Some((LspMethod::Nop, next_step.clone(), vec![next_step]))
                 }
                 // a value is being assigned as this step
                 else {
                     let next_node = parent.child_by_field_name("left").unwrap();
                     let next_step = step_from_node(step.path.clone(), next_node);
 
-                    Some((LspMethod::References, next_step))
+                    dbg!("got aliased, finding references of new alias");
+                    Some((LspMethod::References, next_step.clone(), vec![next_step]))
                 }
             }
             _ => {
-                eprintln!(
-                    "unexpected node kind: {:?} / parent: {:?}, content:\n\n{}\n\n",
-                    node.kind(),
-                    node.parent(),
-                    {
-                        let content =
-                            String::from_utf8(std::fs::read(&step.path).unwrap()).unwrap();
-                        let line = step.start.0;
-                        content.lines().nth(line as usize).unwrap().to_string()
-                    }
-                );
+                // eprintln!(
+                //     "unexpected node kind: {:?} / parent: {:?}, line:\n\n{}\n\n",
+                //     node.kind(),
+                //     node.parent(),
+                //     get_step_line(step)
+                // );
+                // dbg!("-------------------------------");
 
                 None
             }
         }
     }
+}
+
+fn get_step_line(step: &Step) -> String {
+    let content = String::from_utf8(std::fs::read(&step.path).unwrap()).unwrap();
+    let line = step.start.0;
+    content.lines().nth(line as usize).unwrap().to_string()
 }
 
 fn get_tree(step: &Step) -> Tree {

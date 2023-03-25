@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_recursion::async_recursion;
 use lsp_client::client::Client as LspClient;
-use lsp_types::{notification::*, request::*, *};
+use lsp_types::{request::*, *};
 use std::{
     fs::DirEntry,
     path::{Path, PathBuf},
@@ -16,22 +16,11 @@ pub enum LspMethod {
 }
 
 pub trait LanguageProvider: Send + Sync {
-    fn get_next_step(&self, step: &Step) -> Option<(LspMethod, Step)>;
-    fn get_definition_parents(&self, response: lsp_types::GotoDefinitionResponse) -> Vec<Step> {
-        match response {
-            lsp_types::GotoDefinitionResponse::Scalar(location) => {
-                vec![location_to_step(location)]
-            }
-            lsp_types::GotoDefinitionResponse::Array(locations) => {
-                locations.into_iter().map(location_to_step).collect()
-            }
-            lsp_types::GotoDefinitionResponse::Link(_) => todo!("what is link?"),
-        }
-    }
-
-    fn get_references_parents(&self, response: Vec<lsp_types::Location>) -> Vec<Step> {
-        response.into_iter().map(location_to_step).collect()
-    }
+    fn get_next_step(
+        &self,
+        step: &Step,
+        previous_step: Option<&Step>,
+    ) -> Option<(LspMethod, Step, Vec<Step>)>;
 }
 
 pub async fn get_all_paths(
@@ -53,7 +42,7 @@ pub async fn get_all_paths(
                 &language_provider,
                 pub_location,
                 hacky_location,
-                vec![hacky_location.clone()],
+                vec![],
             )
             .await?
             {
@@ -70,11 +59,22 @@ pub struct Step {
     pub path: PathBuf,
     pub start: (u32, u32),
     pub end: (u32, u32),
+    pub context: Option<StepContext>,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum StepContext {
+    ParameterIndex(usize),
 }
 
 impl Step {
     pub fn new(path: PathBuf, start: (u32, u32), end: (u32, u32)) -> Self {
-        Self { path, start, end }
+        Self {
+            path,
+            start,
+            end,
+            context: None,
+        }
     }
 }
 
@@ -90,14 +90,14 @@ async fn get_steps(
         return Ok(Some(steps));
     }
 
-    let Some((method, next_step)) = language_provider.get_next_step(dst) else {
+    let Some((method, next_step, dst_to_next)) = language_provider.get_next_step(dst, steps.last()) else {
         return Ok(None);
     };
 
     let parents: Vec<Step> = match method {
-        LspMethod::Nop => vec![next_step],
+        LspMethod::Nop => vec![next_step.clone()],
         LspMethod::Definition => {
-            let response = lsp_client
+            let definitions = lsp_client
                 .request::<GotoDefinition>(GotoDeclarationParams {
                     text_document_position_params: TextDocumentPositionParams::from(&next_step),
                     work_done_progress_params: WorkDoneProgressParams {
@@ -113,7 +113,15 @@ async fn get_steps(
                 .map_err(anyhow::Error::msg)?
                 .expect("failed to get definition");
 
-            language_provider.get_definition_parents(response)
+            match definitions {
+                lsp_types::GotoDefinitionResponse::Scalar(location) => {
+                    vec![location_to_step(location)]
+                }
+                lsp_types::GotoDefinitionResponse::Array(locations) => {
+                    locations.into_iter().map(location_to_step).collect()
+                }
+                lsp_types::GotoDefinitionResponse::Link(_) => todo!("what is link?"),
+            }
         }
         LspMethod::References => {
             let response = lsp_client
@@ -135,17 +143,23 @@ async fn get_steps(
                 .map_err(anyhow::Error::msg)?
                 .expect("failed to get references");
 
-            language_provider.get_references_parents(response)
+            response.into_iter().map(location_to_step).collect()
         }
     };
 
-    for new_dst in parents {
-        if !steps.contains(&new_dst) {
-            let mut new_steps = steps.clone();
-            new_steps.push(new_dst.clone());
+    let mut new_steps = steps.clone();
+    new_steps.extend(dst_to_next);
 
-            if let Some(next_step) =
-                get_steps(lsp_client, language_provider, src, &new_dst, new_steps).await?
+    for new_dst in &parents {
+        if !steps.contains(new_dst) && new_dst != dst {
+            if let Some(next_step) = get_steps(
+                lsp_client,
+                language_provider,
+                src,
+                new_dst,
+                new_steps.clone(),
+            )
+            .await?
             {
                 return Ok(Some(next_step));
             }
