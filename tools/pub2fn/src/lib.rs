@@ -16,7 +16,7 @@ pub enum LspMethod {
 }
 
 pub trait LanguageProvider: Send + Sync {
-    fn get_next_step(
+    fn get_previous_step(
         &self,
         step: &Step,
         previous_step: Option<&Step>,
@@ -37,7 +37,7 @@ pub async fn get_all_paths(
     let mut step_paths = vec![];
     for pub_location in &pub_locations {
         for hacky_location in &hacky_locations {
-            if let Some(steps) = get_steps(
+            if let Some(mut steps) = get_steps(
                 lsp_client,
                 &language_provider,
                 pub_location,
@@ -46,6 +46,7 @@ pub async fn get_all_paths(
             )
             .await?
             {
+                steps.reverse();
                 step_paths.push(steps);
             }
         }
@@ -91,7 +92,7 @@ async fn get_steps(
         return Ok(Some(steps));
     }
 
-    let Some(next_steps) = language_provider.get_next_step(dst, steps.last()) else {
+    let Some(next_steps) = language_provider.get_previous_step(dst, steps.last()) else {
         return Ok(None);
     };
 
@@ -152,6 +153,10 @@ async fn get_steps(
         dbg!(next_targets.len());
 
         let mut new_steps = steps.clone();
+        dbg!(steps_from_dst_to_next
+            .iter()
+            .map(|s| s.context.as_ref())
+            .collect::<Vec<_>>());
         new_steps.extend(steps_from_dst_to_next);
 
         for next_target in &next_targets {

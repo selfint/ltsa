@@ -187,6 +187,7 @@ def foo(dummy, val):
         .map(|steps| {
             steps
                 .into_iter()
+                .rev()
                 .map(|s| {
                     let path = s.path.file_name().unwrap().to_str().unwrap().to_string();
                     let source = String::from_utf8(std::fs::read(&s.path).unwrap()).unwrap();
@@ -444,7 +445,7 @@ fn step_from_node(path: PathBuf, node: Node) -> Step {
 
 struct PythonLanguageProvider;
 impl LanguageProvider for PythonLanguageProvider {
-    fn get_next_step(
+    fn get_previous_step(
         &self,
         step: &Step,
         previous_step: Option<&Step>,
@@ -458,7 +459,8 @@ impl LanguageProvider for PythonLanguageProvider {
             (
                 &previous_step.map(get_step_line),
                 node.kind(),
-                node.parent().unwrap().kind()
+                node.parent().unwrap().kind(),
+                previous_step.and_then(|p| p.context.as_ref())
             ),
             (get_step_line(step), " ".repeat(step.start.1 as usize) + "^")
         );
@@ -547,10 +549,11 @@ impl LanguageProvider for PythonLanguageProvider {
                 let mut cursor = tree.walk();
                 let mut next_targets = vec![];
                 for child in node.named_children(&mut cursor) {
-                    dbg!(child, child.to_sexp());
                     let step = step_from_node(step.path.clone(), child);
                     next_targets.push((LspMethod::Nop, step.clone(), vec![step]));
                 }
+
+                dbg!("got return statement, checking returned values");
                 if next_targets.is_empty() {
                     None
                 } else {
@@ -558,7 +561,7 @@ impl LanguageProvider for PythonLanguageProvider {
                 }
             }
             ("identifier", Some("return_statement"), _) => {
-                dbg!("got return statement, finding where it is defined");
+                dbg!("got returned identifier, finding where it is defined");
                 Some(vec![(
                     LspMethod::Definition,
                     step.clone(),
