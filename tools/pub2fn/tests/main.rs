@@ -222,7 +222,17 @@ def foo(dummy, val):
                 [
                     "",
                     "def foo(dummy, val):",
-                    "               ^ context: ParameterIndex(1)",
+                    "               ^",
+                    "    if val != \"token\": # step:2",
+                    "        return eval(val) # step:3",
+                ],
+            ),
+            (
+                "util.py",
+                [
+                    "",
+                    "def foo(dummy, val):",
+                    "    ^ context: ParameterIndex(1)",
                     "    if val != \"token\": # step:2",
                     "        return eval(val) # step:3",
                 ],
@@ -236,6 +246,17 @@ def foo(dummy, val):
                     "a = input() # step:0",
                     "foo(1, a) # step:1",
                     "       ^",
+                ],
+            ),
+            (
+                "main.py",
+                [
+                    "",
+                    "from util import foo",
+                    "",
+                    "a = input() # step:0",
+                    "^",
+                    "foo(1, a) # step:1",
                 ],
             ),
             (
@@ -306,15 +327,17 @@ impl LanguageProvider for PythonLanguageProvider {
                     .position(|arg| arg == node)
                     .expect("failed to find parameter index");
 
-                let mut param_step = step.clone();
-                param_step.context = Some(StepContext::ParameterIndex(index));
-                let fn_step = step_from_node(step.path.clone(), fn_name);
+                let param_step = step.clone();
+                let mut fn_step = step_from_node(step.path.clone(), fn_name);
+                fn_step.context = Some(StepContext::ParameterIndex(index));
 
                 dbg!("got parameter, finding references to containing method (added parameter index context)");
 
-                // if you want the fn step to count, move the param context to to the fn step
-                // and add it to the dst_to_next vec (like this    V , fn_step)
-                Some((LspMethod::References, fn_step, vec![param_step]))
+                Some((
+                    LspMethod::References,
+                    fn_step.clone(),
+                    vec![param_step, fn_step],
+                ))
             }
             ("identifier", Some("argument_list")) => {
                 dbg!("got argument, finding where it is defined");
@@ -367,7 +390,11 @@ impl LanguageProvider for PythonLanguageProvider {
                     let next_step = step_from_node(step.path.clone(), next_node);
 
                     dbg!("got assignment, next step is the assigned value");
-                    Some((LspMethod::Nop, next_step.clone(), vec![next_step]))
+                    Some((
+                        LspMethod::Nop,
+                        next_step.clone(),
+                        vec![step.clone(), next_step],
+                    ))
                 }
                 // a value is being assigned as this step
                 else {
@@ -375,17 +402,21 @@ impl LanguageProvider for PythonLanguageProvider {
                     let next_step = step_from_node(step.path.clone(), next_node);
 
                     dbg!("got aliased, finding references of new alias");
-                    Some((LspMethod::References, next_step.clone(), vec![next_step]))
+                    Some((
+                        LspMethod::References,
+                        next_step.clone(),
+                        vec![step.clone(), next_step],
+                    ))
                 }
             }
             _ => {
-                // eprintln!(
-                //     "unexpected node kind: {:?} / parent: {:?}, line:\n\n{}\n\n",
-                //     node.kind(),
-                //     node.parent(),
-                //     get_step_line(step)
-                // );
-                // dbg!("-------------------------------");
+                eprintln!(
+                    "unexpected node kind: {:?} / parent: {:?}, line:\n\n{}\n\n",
+                    node.kind(),
+                    node.parent(),
+                    get_step_line(step)
+                );
+                dbg!("-------------------------------");
 
                 None
             }
