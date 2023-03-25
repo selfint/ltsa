@@ -325,35 +325,6 @@ impl LanguageProvider for PythonLanguageProvider {
             }
         }
     }
-
-    fn get_definition_parents(&self, response: lsp_types::GotoDefinitionResponse) -> Vec<Step> {
-        match response {
-            lsp_types::GotoDefinitionResponse::Scalar(location) => {
-                vec![location_to_step(location)]
-            }
-            lsp_types::GotoDefinitionResponse::Array(locations) => {
-                locations.into_iter().map(location_to_step).collect()
-            }
-            lsp_types::GotoDefinitionResponse::Link(_) => todo!("what is link?"),
-        }
-    }
-
-    fn get_references_parents(&self, response: Vec<lsp_types::Location>) -> Vec<Step> {
-        response.into_iter().map(location_to_step).collect()
-    }
-}
-
-fn location_to_step(location: Location) -> Step {
-    let path = location
-        .uri
-        .to_file_path()
-        .expect("failed to get uri file path");
-    let start = location.range.start;
-    let start = (start.line, start.character);
-    let end = location.range.end;
-    let end = (end.line, end.character);
-
-    Step::new(path, start, end)
 }
 
 fn get_tree(step: &Step) -> Tree {
