@@ -382,39 +382,3 @@ fn get_node<'a>(step: &Step, root: Node<'a>) -> Node<'a> {
     )
     .expect("failed to get node at location range")
 }
-
-// let dst_parents = match dst.kind {
-//     StepKind::Variable => {
-//         let parent = lsp_client
-//             .request::<GotoDefinition>(GotoDefinitionParams {
-//                 text_document_position_params: dst.text_document_position_params.clone(),
-//                 work_done_progress_params: WorkDoneProgressParams {
-//                     work_done_token: None,
-//                 },
-//                 partial_result_params: PartialResultParams {
-//                     partial_result_token: None,
-//                 },
-//             })
-//             .await?
-//             .result
-//             .as_result()
-//             .map_err(anyhow::Error::msg)?;
-
-//         match parent {
-//             Some(parent) => match parent {
-//                 GotoDefinitionResponse::Scalar(location) => {
-//                     let step = Step::from_location(location, kind_resolver_fn);
-//                     vec![step]
-//                 }
-//                 GotoDefinitionResponse::Array(locations) => locations
-//                     .into_iter()
-//                     .map(|location| Step::from_location(location, kind_resolver_fn))
-//                     .collect(),
-//                 GotoDefinitionResponse::Link(_) => todo!("what is link?"),
-//             },
-//             None => return Ok(None),
-//         }
-//     }
-//     StepKind::Parameter => todo!("got parameter"),
-//     StepKind::Function => todo!(),
-// };
