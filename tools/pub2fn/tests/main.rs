@@ -195,7 +195,37 @@ def foo(val):
         .collect::<Vec<_>>();
 
     insta::assert_debug_snapshot!(debug_steps,
-        @""
+        @r###"
+    [
+        [
+            (
+                "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpA2u3AA/util.py",
+                "        return eval(val) # step:3",
+                "                    ^",
+            ),
+            (
+                "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpA2u3AA/util.py",
+                "def foo(val):",
+                "        ^",
+            ),
+            (
+                "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpA2u3AA/main.py",
+                "foo(a) # step:1",
+                "^",
+            ),
+            (
+                "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpA2u3AA/main.py",
+                "a = input() # step:0",
+                "^",
+            ),
+            (
+                "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpA2u3AA/main.py",
+                "a = input() # step:0",
+                "    ^",
+            ),
+        ],
+    ]
+    "###
     );
 
     for handle in handles {
