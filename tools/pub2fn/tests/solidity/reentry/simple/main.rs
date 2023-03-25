@@ -1,13 +1,41 @@
-use std::env;
+use lsp_types::{notification::*, request::*, *};
+use std::process::Stdio;
+use std::{env, path::PathBuf};
+use tokio::process::{Child, Command};
+
 const ROOT_DIR: &str = "tests/solidity/reentry/simple";
 
-#[test]
-fn test_load() {
-    let path = env::current_dir()
-        .unwrap()
-        .join(ROOT_DIR)
-        .join("contract.sol");
-    insta::assert_debug_snapshot!(String::from_utf8(std::fs::read(path).unwrap()).unwrap(),
-        @r###""// SPDX-License-Identifier: MIT\npragma solidity ^0.8.17;\n\n/*\nEtherStore is a contract where you can deposit and withdraw ETH.\nThis contract is vulnerable to re-entrancy attack.\nLet's see why.\n\n1. Deploy EtherStore\n2. Deposit 1 Ether each from Account 1 (Alice) and Account 2 (Bob) into EtherStore\n3. Deploy Attack with address of EtherStore\n4. Call Attack.attack sending 1 ether (using Account 3 (Eve)).\n   You will get 3 Ethers back (2 Ether stolen from Alice and Bob,\n   plus 1 Ether sent from this contract).\n\nWhat happened?\nAttack was able to call EtherStore.withdraw multiple times before\nEtherStore.withdraw finished executing.\n\nHere is how the functions were called\n- Attack.attack\n- EtherStore.deposit\n- EtherStore.withdraw\n- Attack fallback (receives 1 Ether)\n- EtherStore.withdraw\n- Attack.fallback (receives 1 Ether)\n- EtherStore.withdraw\n- Attack fallback (receives 1 Ether)\n*/\n\ncontract EtherStore {\n    mapping(address => uint) public balances;\n\n    function deposit() public payable {\n        balances[msg.sender] += msg.value;\n    }\n\n    function withdraw() public {\n        uint bal = balances[msg.sender];\n        require(bal > 0);\n\n        (bool sent, ) = msg.sender.call{value: bal}(\"\");\n        require(sent, \"Failed to send Ether\");\n\n        balances[msg.sender] = 0;\n    }\n\n    // Helper function to check the balance of this contract\n    function getBalance() public view returns (uint) {\n        return address(this).balance;\n    }\n}\n\n// contract Attack {\n//     EtherStore public etherStore;\n\n//     constructor(address _etherStoreAddress) {\n//         etherStore = EtherStore(_etherStoreAddress);\n//     }\n\n//     // Fallback is called when EtherStore sends Ether to this contract.\n//     fallback() external payable {\n//         if (address(etherStore).balance >= 1 ether) {\n//             etherStore.withdraw();\n//         }\n//     }\n\n//     function attack() external payable {\n//         require(msg.value >= 1 ether);\n//         etherStore.deposit{value: 1 ether}();\n//         etherStore.withdraw();\n//     }\n\n//     // Helper function to check the balance of this contract\n//     function getBalance() public view returns (uint) {\n//         return address(this).balance;\n//     }\n// }\n""###
-    );
+fn start_solidity_ls() -> Child {
+    Command::new("solidity-ls")
+        .arg("--stdio")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("failed to start rust analyzer")
+}
+
+fn get_root_dir() -> PathBuf {
+    env::current_dir().unwrap().join(ROOT_DIR)
+}
+
+#[tokio::test]
+async fn test_load() {
+    let mut child = start_solidity_ls();
+    let stdin = child.stdin.take().unwrap();
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
+    let (lsp_client, handles) = lsp_client::clients::stdio_client(stdin, stdout, stderr);
+
+    let root_dir = get_root_dir();
+
+    let init_resp = lsp_client
+        .request::<Initialize>(InitializeParams {
+            root_uri: Some(Url::from_file_path(&root_dir).unwrap()),
+            ..Default::default()
+        })
+        .await?
+        .result
+        .as_result()
+        .map_err(anyhow::Error::msg)?;
 }
