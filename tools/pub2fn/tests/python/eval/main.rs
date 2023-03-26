@@ -428,7 +428,7 @@ def foo(dummy, val):
         handle.abort();
     }
 
-    // fs::remove_dir_all(root_dir).expect("failed to delete src");
+    fs::remove_dir_all(root_dir).expect("failed to delete src");
 
     Ok(())
 }
