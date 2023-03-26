@@ -1,3 +1,5 @@
+pub mod language_provider;
+
 use anyhow::Result;
 use async_recursion::async_recursion;
 use lsp_client::client::Client as LspClient;

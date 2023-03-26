@@ -22,9 +22,9 @@ tokio = { version = "1.26.0", features = [
     "time",
 ] }
 tree-sitter = "0.20.9"
+tree-sitter-solidity = { git = "https://github.com/selfint/tree-sitter-solidity", version = "0.0.3" }
 
 [dev-dependencies]
 insta = { version = "1.28.0", features = ["json"] }
 tempfile = "3.4.0"
 tree-sitter-python = "0.20.2"
-tree-sitter-solidity = { git = "https://github.com/selfint/tree-sitter-solidity", version = "0.0.3" }

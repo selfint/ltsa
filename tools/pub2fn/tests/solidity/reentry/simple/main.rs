@@ -1,12 +1,12 @@
 use anyhow::Result;
 use lsp_types::{notification::*, request::*, *};
-use pub2fn::{LanguageProvider, LspMethod, Step};
+use pub2fn::language_provider::solidity::SolidityLanguageProvider;
+use std::env;
+use std::path::Path;
 use std::process::Stdio;
-use std::{env, path::PathBuf};
+use tempfile::{tempdir, TempDir};
 use tokio::process::{Child, Command};
-use tree_sitter::{Node, Point, Query, Tree};
-
-const ROOT_DIR: &str = "tests/solidity/reentry/simple";
+use tree_sitter::Query;
 
 fn start_solidity_ls() -> Child {
     Command::new("solidity-ls")
@@ -15,129 +15,40 @@ fn start_solidity_ls() -> Child {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("failed to start rust analyzer")
+        .expect("failed to start solidity ls")
 }
 
-fn get_root_dir() -> PathBuf {
-    env::current_dir().unwrap().join(ROOT_DIR)
-}
+fn get_temp_dir() -> TempDir {
+    let contract = include_str!("contract.sol");
 
-fn get_tree<C>(step: &Step<C>) -> Tree {
-    let mut parser = tree_sitter::Parser::new();
-    parser
-        .set_language(tree_sitter_solidity::language())
-        .expect("failed to set language");
+    let temp_dir = tempdir().expect("failed to create tempdir");
+    std::fs::write(temp_dir.path().join("contract.sol"), contract)
+        .expect("failed to copy contract");
 
-    let content = String::from_utf8(std::fs::read(&step.path).unwrap()).unwrap();
+    dbg!(&temp_dir);
+    dbg!(&temp_dir.path());
 
-    parser
-        .parse(&content, None)
-        .expect("failed to parse content")
-}
-
-fn get_node<'a, C>(step: &Step<C>, root: Node<'a>) -> Node<'a> {
-    root.descendant_for_point_range(
-        Point {
-            row: step.start.0 as usize,
-            column: step.start.1 as usize,
-        },
-        Point {
-            row: step.end.0 as usize,
-            column: step.end.1 as usize,
-        },
-    )
-    .expect("failed to get node at location range")
-}
-
-struct SolidityLanguageProvider;
-#[derive(PartialEq, Eq, Debug, Clone)]
-pub enum StepContext {}
-
-impl LanguageProvider for SolidityLanguageProvider {
-    type Context = StepContext;
-
-    fn get_previous_step(
-        &self,
-        step: &pub2fn::Step<Self::Context>,
-        previous_step: Option<&pub2fn::Step<Self::Context>>,
-    ) -> Option<
-        Vec<(
-            pub2fn::LspMethod,
-            pub2fn::Step<Self::Context>,
-            Vec<pub2fn::Step<Self::Context>>,
-        )>,
-    > {
-        let tree = get_tree(step);
-        let node = get_node(step, tree.root_node());
-        let parent = node.parent().unwrap();
-
-        eprintln!(
-            "got step with node kind: {:?} / parent: {:?} / context: {:?}, line:\n\n{}\n{}\n",
-            node.kind(),
-            parent.kind(),
-            step.context,
-            get_step_line(step),
-            " ".repeat(node.start_position().column)
-                + &"^".repeat(node.end_position().column - node.start_position().column)
-        );
-
-        match (
-            node.kind(),
-            parent.kind(),
-            previous_step.and_then(|p| p.context.as_ref()),
-        ) {
-            ("identifier", "member_expression", None) => {
-                dbg!(parent.to_sexp());
-                // if we are a property
-                if parent.child_by_field_name("property") == Some(node) {
-                    dbg!("got property, next step is object");
-
-                    // get object definition
-                    let object = parent
-                        .child_by_field_name("object")
-                        .expect("got member expression with property but without object");
-                    let next_step = step_from_node(step.path.clone(), object);
-
-                    Some(vec![(
-                        LspMethod::Nop,
-                        next_step.clone(),
-                        vec![step.clone(), next_step],
-                    )])
-                } else {
-                    todo!("we are object")
-                }
-            }
-            _ => {
-                // todo!()
-                None
-            }
-        }
-    }
-}
-
-fn get_step_line<C>(step: &Step<C>) -> String {
-    let content = String::from_utf8(std::fs::read(&step.path).unwrap()).unwrap();
-    let line = step.start.0;
-    content.lines().nth(line as usize).unwrap().to_string()
+    temp_dir
 }
 
 #[tokio::test]
 async fn test_solidity() {
-    _test_solidity().await.expect("solidity test failed");
+    let root_dir = get_temp_dir();
+    _test_solidity(root_dir.path())
+        .await
+        .expect("solidity test failed");
 }
 
-async fn _test_solidity() -> Result<()> {
+async fn _test_solidity(root_dir: &Path) -> Result<()> {
     let mut child = start_solidity_ls();
     let stdin = child.stdin.take().unwrap();
     let stdout = child.stdout.take().unwrap();
     let stderr = child.stderr.take().unwrap();
     let (lsp_client, handles) = lsp_client::clients::stdio_client(stdin, stdout, stderr);
 
-    let root_dir = get_root_dir();
-
     lsp_client
         .request::<Initialize>(InitializeParams {
-            root_uri: Some(Url::from_file_path(&root_dir).unwrap()),
+            root_uri: Some(Url::from_file_path(root_dir).unwrap()),
             ..Default::default()
         })
         .await?
@@ -182,7 +93,7 @@ async fn _test_solidity() -> Result<()> {
     );
 
     let steps = pub2fn::get_all_paths(
-        &root_dir,
+        root_dir,
         &lsp_client,
         tree_sitter_solidity::language(),
         pub_query,
@@ -198,6 +109,7 @@ async fn _test_solidity() -> Result<()> {
                 .into_iter()
                 .rev()
                 .map(|s| {
+                    let fp = s.path.clone();
                     let path = s.path.file_name().unwrap().to_str().unwrap().to_string();
                     let source = String::from_utf8(std::fs::read(&s.path).unwrap()).unwrap();
                     let mut snippet = vec![];
@@ -221,7 +133,9 @@ async fn _test_solidity() -> Result<()> {
                     }
 
                     let snippet = snippet.join("\n");
-                    format!("# {path} #\n\n{snippet}")
+                    let string = format!("# {path} #\n\n{snippet}");
+                    dbg!("########", &fp, &string);
+                    string
                 })
                 .enumerate()
                 .map(|(i, step_snippet)| format!("Step: {i}\n{step_snippet}"))
@@ -239,10 +153,10 @@ async fn _test_solidity() -> Result<()> {
     Step: 0
     # contract.sol #
 
+
+        function withdraw() public {
             uint bal = balances[msg.sender];
             require(bal > 0);
-
-            // address sender = getSender();
 
             (bool sent, ) = msg.sender.call{value: bal}("");
                                        ^^^^
@@ -254,10 +168,10 @@ async fn _test_solidity() -> Result<()> {
     Step: 1
     # contract.sol #
 
+
+        function withdraw() public {
             uint bal = balances[msg.sender];
             require(bal > 0);
-
-            // address sender = getSender();
 
             (bool sent, ) = msg.sender.call{value: bal}("");
                             ^^^^^^^^^^
@@ -277,8 +191,10 @@ async fn _test_solidity() -> Result<()> {
 
 #[test]
 fn test_queries() {
-    let text =
-        String::from_utf8(std::fs::read(get_root_dir().join("contract.sol")).unwrap()).unwrap();
+    let temp_dir = get_temp_dir();
+    let path = temp_dir.path().join("contract.sol");
+    dbg!(&path);
+    let text = String::from_utf8(std::fs::read(path).unwrap()).unwrap();
 
     let mut parser = tree_sitter::Parser::new();
     parser
@@ -334,14 +250,6 @@ fn test_queries() {
     insta::assert_snapshot!(node_text,
         @"call"
     );
-}
 
-fn step_from_node<C>(path: PathBuf, node: Node) -> Step<C> {
-    let start = node.start_position();
-    let end = node.end_position();
-
-    let start = (start.row as u32, start.column as u32);
-    let end = (end.row as u32, end.column as u32);
-
-    Step::new(path, start, end)
+    std::fs::remove_dir_all(temp_dir).unwrap();
 }

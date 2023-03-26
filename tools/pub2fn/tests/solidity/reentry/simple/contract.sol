@@ -35,15 +35,9 @@ contract EtherStore {
         balances[msg.sender] += msg.value;
     }
 
-    function getSender() private view returns (address) {
-        return msg.sender;
-    }
-
     function withdraw() public {
         uint bal = balances[msg.sender];
         require(bal > 0);
-
-        // address sender = getSender();
 
         (bool sent, ) = msg.sender.call{value: bal}("");
         require(sent, "Failed to send Ether");
