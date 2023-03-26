@@ -1,7 +1,8 @@
 pub mod language_provider;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_recursion::async_recursion;
+use jsonrpc::types::{JsonRpcError, JsonRpcResult};
 use lsp_client::client::Client as LspClient;
 use lsp_types::{request::*, *};
 use std::{
@@ -30,7 +31,7 @@ pub trait LanguageProvider: Send + Sync {
 
 pub async fn get_all_paths<P: LanguageProvider>(
     root_dir: &Path,
-    lsp_client: &LspClient,
+    lsp_clients: &[&LspClient],
     language: Language,
     pub_query: (Query, u32),
     hacky_query: (Query, u32),
@@ -43,7 +44,7 @@ pub async fn get_all_paths<P: LanguageProvider>(
     for pub_location in &pub_locations {
         for hacky_location in &hacky_locations {
             if let Some(mut steps) = get_steps(
-                lsp_client,
+                lsp_clients,
                 &language_provider,
                 pub_location,
                 hacky_location,
@@ -81,7 +82,7 @@ impl<C> Step<C> {
 
 #[async_recursion]
 async fn get_steps<P: LanguageProvider>(
-    lsp_client: &LspClient,
+    lsp_clients: &[&LspClient],
     language_provider: &P,
     src: &Step<P::Context>,
     dst: &Step<P::Context>,
@@ -95,60 +96,81 @@ async fn get_steps<P: LanguageProvider>(
         return Ok(None);
     };
 
+    let mut worked = false;
+
     for (method, next_step, steps_from_dst_to_next) in next_steps {
         let mut next_targets = vec![];
-        match method {
-            LspMethod::Nop => next_targets.push(next_step),
-            LspMethod::Definition => {
-                let definitions = lsp_client
-                    .request::<GotoDefinition>(GotoDeclarationParams {
-                        text_document_position_params: TextDocumentPositionParams::from(&next_step),
-                        work_done_progress_params: WorkDoneProgressParams {
-                            work_done_token: None,
-                        },
-                        partial_result_params: PartialResultParams {
-                            partial_result_token: None,
-                        },
-                    })
-                    .await?
-                    .result
-                    .as_result()
-                    .map_err(anyhow::Error::msg)?
-                    .expect("failed to get definition");
+        #[allow(clippy::never_loop)]
+        for lsp_client in lsp_clients {
+            match method {
+                LspMethod::Nop => {
+                    next_targets.push(next_step);
+                    worked = true;
+                    break;
+                }
+                LspMethod::Definition => {
+                    let definitions = lsp_client
+                        .request::<GotoDefinition>(GotoDeclarationParams {
+                            text_document_position_params: TextDocumentPositionParams::from(
+                                &next_step,
+                            ),
+                            work_done_progress_params: WorkDoneProgressParams {
+                                work_done_token: None,
+                            },
+                            partial_result_params: PartialResultParams {
+                                partial_result_token: None,
+                            },
+                        })
+                        .await?
+                        .result
+                        .as_result()
+                        .map_err(anyhow::Error::msg)?;
 
-                match definitions {
-                    lsp_types::GotoDefinitionResponse::Scalar(location) => {
-                        next_targets.push(location_to_step(location));
-                    }
-                    lsp_types::GotoDefinitionResponse::Array(locations) => {
-                        next_targets.extend(locations.into_iter().map(location_to_step))
-                    }
-                    lsp_types::GotoDefinitionResponse::Link(_) => todo!("what is link?"),
-                };
-            }
-            LspMethod::References => {
-                let references = lsp_client
-                    .request::<References>(ReferenceParams {
-                        text_document_position: TextDocumentPositionParams::from(&next_step),
-                        work_done_progress_params: WorkDoneProgressParams {
-                            work_done_token: None,
-                        },
-                        partial_result_params: PartialResultParams {
-                            partial_result_token: None,
-                        },
-                        context: ReferenceContext {
-                            include_declaration: false,
-                        },
-                    })
-                    .await?
-                    .result
-                    .as_result()
-                    .map_err(anyhow::Error::msg)?
-                    .expect("failed to get references");
+                    let Some(definitions) = definitions else {
+                        continue;
+                    };
 
-                next_targets.extend(references.into_iter().map(location_to_step))
-            }
-        };
+                    match definitions {
+                        lsp_types::GotoDefinitionResponse::Scalar(location) => {
+                            next_targets.push(location_to_step(location));
+                        }
+                        lsp_types::GotoDefinitionResponse::Array(locations) => {
+                            next_targets.extend(locations.into_iter().map(location_to_step))
+                        }
+                        lsp_types::GotoDefinitionResponse::Link(_) => todo!("what is link?"),
+                    };
+                    worked = true;
+                    break;
+                }
+                LspMethod::References => {
+                    let references = lsp_client
+                        .request::<References>(ReferenceParams {
+                            text_document_position: TextDocumentPositionParams::from(&next_step),
+                            work_done_progress_params: WorkDoneProgressParams {
+                                work_done_token: None,
+                            },
+                            partial_result_params: PartialResultParams {
+                                partial_result_token: None,
+                            },
+                            context: ReferenceContext {
+                                include_declaration: false,
+                            },
+                        })
+                        .await?
+                        .result
+                        .as_result()
+                        .map_err(anyhow::Error::msg)?
+                        .expect("failed to get references");
+
+                    next_targets.extend(references.into_iter().map(location_to_step));
+                    worked = true;
+                    break;
+                }
+            };
+        }
+
+        assert!(worked);
+
         dbg!(next_targets.len());
 
         let mut new_steps = steps.clone();
@@ -157,7 +179,7 @@ async fn get_steps<P: LanguageProvider>(
         for next_target in &next_targets {
             if !steps.contains(next_target) && next_target != dst {
                 if let Some(next_step) = get_steps(
-                    lsp_client,
+                    lsp_clients,
                     language_provider,
                     src,
                     next_target,

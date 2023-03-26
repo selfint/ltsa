@@ -9,13 +9,23 @@ use tokio::process::{Child, Command};
 use tree_sitter::Query;
 
 fn start_solidity_ls() -> Child {
+    Command::new("solidity-ls")
+        .arg("--stdio")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("failed to start solidity ls")
+}
+
+fn start_solidity_solc_lsp() -> Child {
     Command::new("solc")
         .arg("--lsp")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("failed to start solidity ls")
+        .expect("failed to start solc lsp")
 }
 
 fn get_temp_dir() -> TempDir {
@@ -43,17 +53,14 @@ async fn _test_solidity(root_dir: &Path) -> Result<()> {
     let stderr = child.stderr.take().unwrap();
     let (lsp_client, handles) = lsp_client::clients::stdio_client(stdin, stdout, stderr);
 
-    lsp_client
-        .request::<Initialize>(InitializeParams {
-            root_uri: Some(Url::from_file_path(root_dir).unwrap()),
-            ..Default::default()
-        })
-        .await?
-        .result
-        .as_result()
-        .map_err(anyhow::Error::msg)?;
+    let mut child2 = start_solidity_solc_lsp();
+    let stdin2 = child2.stdin.take().unwrap();
+    let stdout2 = child2.stdout.take().unwrap();
+    let stderr2 = child2.stderr.take().unwrap();
+    let (lsp_client2, handles2) = lsp_client::clients::stdio_client(stdin2, stdout2, stderr2);
 
-    lsp_client.notify::<Initialized>(InitializedParams {})?;
+    init_lsp(&lsp_client, root_dir).await?;
+    init_lsp(&lsp_client2, root_dir).await?;
 
     let pub_query = (
         Query::new(
@@ -91,7 +98,7 @@ async fn _test_solidity(root_dir: &Path) -> Result<()> {
 
     let steps = pub2fn::get_all_paths(
         root_dir,
-        &lsp_client,
+        &[&lsp_client2],
         tree_sitter_solidity::language(),
         pub_query,
         hacky_query,
@@ -149,6 +156,36 @@ async fn _test_solidity(root_dir: &Path) -> Result<()> {
         handle.abort();
     }
 
+    for handle in handles2 {
+        handle.abort();
+    }
+
+    Ok(())
+}
+
+async fn init_lsp(
+    lsp_client: &lsp_client::client::Client,
+    root_dir: &Path,
+) -> Result<(), anyhow::Error> {
+    lsp_client
+        .request::<Initialize>(InitializeParams {
+            root_uri: Some(Url::from_file_path(root_dir).unwrap()),
+            capabilities: ClientCapabilities {
+                text_document: Some(TextDocumentClientCapabilities {
+                    references: Some(DynamicRegistrationClientCapabilities {
+                        dynamic_registration: Some(true),
+                    }),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .await?
+        .result
+        .as_result()
+        .map_err(anyhow::Error::msg)?;
+    lsp_client.notify::<Initialized>(InitializedParams {})?;
     Ok(())
 }
 

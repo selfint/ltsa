@@ -91,7 +91,7 @@ async fn _test_solidity(root_dir: &Path) -> Result<()> {
 
     let steps = pub2fn::get_all_paths(
         root_dir,
-        &lsp_client,
+        &[&lsp_client],
         tree_sitter_solidity::language(),
         pub_query,
         hacky_query,

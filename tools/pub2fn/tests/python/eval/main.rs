@@ -117,7 +117,7 @@ def foo(dummy, val):
 ###end###
         "#;
 
-    let (root_dir, expected_steps) = build_src(src).expect("failed to build src");
+    let (root_dir, _expected_steps) = build_src(src).expect("failed to build src");
     dbg!(&root_dir);
 
     let mut child = start_python_language_server();
@@ -173,7 +173,7 @@ def foo(dummy, val):
 
     let actual_steps = pub2fn::get_all_paths(
         root_dir.as_path(),
-        &lsp_client,
+        &[&lsp_client],
         tree_sitter_python::language(),
         pub_query,
         hacky_query,

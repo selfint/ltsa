@@ -60,11 +60,14 @@ impl LanguageProvider for SolidityLanguageProvider {
                     )])
                 }
             }
-            ("identifier", "variable_declaration", None) => Some(vec![(
-                LspMethod::References,
-                step.clone(),
-                vec![step.clone()],
-            )]),
+            ("identifier", "variable_declaration", None) => {
+                dbg!("got variable declaration, finding references");
+                Some(vec![(
+                    LspMethod::References,
+                    step.clone(),
+                    vec![step.clone()],
+                )])
+            }
             _ => None,
         }
     }
