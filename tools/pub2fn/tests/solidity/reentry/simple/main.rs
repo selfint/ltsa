@@ -22,7 +22,7 @@ fn get_root_dir() -> PathBuf {
     env::current_dir().unwrap().join(ROOT_DIR)
 }
 
-fn get_tree(step: &Step) -> Tree {
+fn get_tree<C>(step: &Step<C>) -> Tree {
     let mut parser = tree_sitter::Parser::new();
     parser
         .set_language(tree_sitter_solidity::language())
@@ -35,7 +35,7 @@ fn get_tree(step: &Step) -> Tree {
         .expect("failed to parse content")
 }
 
-fn get_node<'a>(step: &Step, root: Node<'a>) -> Node<'a> {
+fn get_node<'a, C>(step: &Step<C>, root: Node<'a>) -> Node<'a> {
     root.descendant_for_point_range(
         Point {
             row: step.start.0 as usize,
@@ -50,12 +50,23 @@ fn get_node<'a>(step: &Step, root: Node<'a>) -> Node<'a> {
 }
 
 struct SolidityLanguageProvider;
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum StepContext {}
+
 impl LanguageProvider for SolidityLanguageProvider {
+    type Context = StepContext;
+
     fn get_previous_step(
         &self,
-        step: &pub2fn::Step,
-        previous_step: Option<&pub2fn::Step>,
-    ) -> Option<Vec<(pub2fn::LspMethod, pub2fn::Step, Vec<pub2fn::Step>)>> {
+        step: &pub2fn::Step<Self::Context>,
+        previous_step: Option<&pub2fn::Step<Self::Context>>,
+    ) -> Option<
+        Vec<(
+            pub2fn::LspMethod,
+            pub2fn::Step<Self::Context>,
+            Vec<pub2fn::Step<Self::Context>>,
+        )>,
+    > {
         let tree = get_tree(step);
         let node = get_node(step, tree.root_node());
         let parent = node.parent().unwrap();
@@ -109,7 +120,7 @@ impl LanguageProvider for SolidityLanguageProvider {
     }
 }
 
-fn get_step_line(step: &Step) -> String {
+fn get_step_line<C>(step: &Step<C>) -> String {
     let content = String::from_utf8(std::fs::read(&step.path).unwrap()).unwrap();
     let line = step.start.0;
     content.lines().nth(line as usize).unwrap().to_string()
@@ -284,7 +295,7 @@ fn test_queries() {
     );
 }
 
-fn step_from_node(path: PathBuf, node: Node) -> Step {
+fn step_from_node<C>(path: PathBuf, node: Node) -> Step<C> {
     let start = node.start_position();
     let end = node.end_position();
 

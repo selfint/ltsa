@@ -1,7 +1,7 @@
 use lsp_types::{
     notification::Initialized, request::Initialize, InitializeParams, InitializedParams, Url,
 };
-use pub2fn::{get_query_results, LanguageProvider, LspMethod, Step, StepContext};
+use pub2fn::{get_query_results, LanguageProvider, LspMethod, Step};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -433,7 +433,7 @@ def foo(dummy, val):
     Ok(())
 }
 
-fn step_from_node(path: PathBuf, node: Node) -> Step {
+fn step_from_node<C>(path: PathBuf, node: Node) -> Step<C> {
     let start = node.start_position();
     let end = node.end_position();
 
@@ -444,12 +444,19 @@ fn step_from_node(path: PathBuf, node: Node) -> Step {
 }
 
 struct PythonLanguageProvider;
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum StepContext {
+    ParameterIndex(usize),
+    GetReturnValues,
+}
+
 impl LanguageProvider for PythonLanguageProvider {
+    type Context = StepContext;
     fn get_previous_step(
         &self,
-        step: &Step,
-        previous_step: Option<&Step>,
-    ) -> Option<Vec<(pub2fn::LspMethod, Step, Vec<Step>)>> {
+        step: &Step<StepContext>,
+        previous_step: Option<&Step<StepContext>>,
+    ) -> Option<Vec<(pub2fn::LspMethod, Step<StepContext>, Vec<Step<StepContext>>)>> {
         let tree = get_tree(step);
         let node = get_node(step, tree.root_node());
 
@@ -636,13 +643,13 @@ impl LanguageProvider for PythonLanguageProvider {
     }
 }
 
-fn get_step_line(step: &Step) -> String {
+fn get_step_line<C>(step: &Step<C>) -> String {
     let content = String::from_utf8(std::fs::read(&step.path).unwrap()).unwrap();
     let line = step.start.0;
     content.lines().nth(line as usize).unwrap().to_string()
 }
 
-fn get_tree(step: &Step) -> Tree {
+fn get_tree<C>(step: &Step<C>) -> Tree {
     let mut parser = tree_sitter::Parser::new();
     parser
         .set_language(tree_sitter_python::language())
@@ -655,7 +662,7 @@ fn get_tree(step: &Step) -> Tree {
         .expect("failed to parse content")
 }
 
-fn get_node<'a>(step: &Step, root: Node<'a>) -> Node<'a> {
+fn get_node<'a, C>(step: &Step<C>, root: Node<'a>) -> Node<'a> {
     root.descendant_for_point_range(
         Point {
             row: step.start.0 as usize,

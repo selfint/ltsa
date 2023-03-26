@@ -3,6 +3,7 @@ use async_recursion::async_recursion;
 use lsp_client::client::Client as LspClient;
 use lsp_types::{request::*, *};
 use std::{
+    fmt::Debug,
     fs::DirEntry,
     path::{Path, PathBuf},
 };
@@ -16,21 +17,23 @@ pub enum LspMethod {
 }
 
 pub trait LanguageProvider: Send + Sync {
+    type Context: Send + Sync + Clone + Debug + PartialEq;
+
     fn get_previous_step(
         &self,
-        step: &Step,
-        previous_step: Option<&Step>,
-    ) -> Option<Vec<(LspMethod, Step, Vec<Step>)>>;
+        step: &Step<Self::Context>,
+        previous_step: Option<&Step<Self::Context>>,
+    ) -> Option<Vec<(LspMethod, Step<Self::Context>, Vec<Step<Self::Context>>)>>;
 }
 
-pub async fn get_all_paths(
+pub async fn get_all_paths<P: LanguageProvider>(
     root_dir: &Path,
     lsp_client: &LspClient,
     language: Language,
     pub_query: (Query, u32),
     hacky_query: (Query, u32),
-    language_provider: impl LanguageProvider,
-) -> Result<Vec<Vec<Step>>> {
+    language_provider: P,
+) -> Result<Vec<Vec<Step<P::Context>>>> {
     let pub_locations = get_query_locations(root_dir, language, &pub_query)?;
     let hacky_locations = get_query_locations(root_dir, language, &hacky_query)?;
 
@@ -56,20 +59,14 @@ pub async fn get_all_paths(
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub struct Step {
+pub struct Step<C> {
     pub path: PathBuf,
     pub start: (u32, u32),
     pub end: (u32, u32),
-    pub context: Option<StepContext>,
+    pub context: Option<C>,
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
-pub enum StepContext {
-    ParameterIndex(usize),
-    GetReturnValues,
-}
-
-impl Step {
+impl<C> Step<C> {
     pub fn new(path: PathBuf, start: (u32, u32), end: (u32, u32)) -> Self {
         Self {
             path,
@@ -81,13 +78,13 @@ impl Step {
 }
 
 #[async_recursion]
-async fn get_steps(
+async fn get_steps<P: LanguageProvider>(
     lsp_client: &LspClient,
-    language_provider: &impl LanguageProvider,
-    src: &Step,
-    dst: &Step,
-    steps: Vec<Step>,
-) -> Result<Option<Vec<Step>>> {
+    language_provider: &P,
+    src: &Step<P::Context>,
+    dst: &Step<P::Context>,
+    steps: Vec<Step<P::Context>>,
+) -> Result<Option<Vec<Step<P::Context>>>> {
     if src == dst {
         return Ok(Some(steps));
     }
@@ -179,11 +176,11 @@ async fn get_steps(
     Ok(None)
 }
 
-fn get_query_locations(
+fn get_query_locations<C>(
     root_dir: &Path,
     language: Language,
     query: &(Query, u32),
-) -> Result<Vec<Step>> {
+) -> Result<Vec<Step<C>>> {
     fn visit_dirs(dir: &Path, cb: &mut impl FnMut(&DirEntry)) -> std::io::Result<()> {
         if dir.is_dir() {
             for entry in std::fs::read_dir(dir)? {
@@ -252,8 +249,8 @@ pub fn get_query_results<'a>(
     nodes
 }
 
-impl From<&Step> for TextDocumentPositionParams {
-    fn from(step: &Step) -> Self {
+impl<C> From<&Step<C>> for TextDocumentPositionParams {
+    fn from(step: &Step<C>) -> Self {
         Self {
             text_document: TextDocumentIdentifier {
                 uri: Url::from_file_path(&step.path).unwrap(),
@@ -266,7 +263,7 @@ impl From<&Step> for TextDocumentPositionParams {
     }
 }
 
-pub fn location_to_step(location: Location) -> Step {
+pub fn location_to_step<C>(location: Location) -> Step<C> {
     let path = location
         .uri
         .to_file_path()
