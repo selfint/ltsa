@@ -2,7 +2,7 @@ pub mod language_provider;
 
 use anyhow::{Context, Result};
 use async_recursion::async_recursion;
-use jsonrpc::types::{JsonRpcError, JsonRpcResult};
+use jsonrpc::types::JsonRpcResult;
 use lsp_client::client::Client as LspClient;
 use lsp_types::{request::*, *};
 use std::{
@@ -50,7 +50,8 @@ pub async fn get_all_paths<P: LanguageProvider>(
                 hacky_location,
                 vec![],
             )
-            .await?
+            .await
+            .context("failed to get steps")?
             {
                 steps.reverse();
                 step_paths.push(steps);
@@ -100,7 +101,7 @@ async fn get_steps<P: LanguageProvider>(
 
     for (method, next_step, steps_from_dst_to_next) in next_steps {
         let mut next_targets = vec![];
-        #[allow(clippy::never_loop)]
+        // #[allow(clippy::never_loop)]
         for lsp_client in lsp_clients {
             match method {
                 LspMethod::Nop => {
@@ -121,10 +122,12 @@ async fn get_steps<P: LanguageProvider>(
                                 partial_result_token: None,
                             },
                         })
-                        .await?
+                        .await
+                        .context("failed to get definitions")?
                         .result
                         .as_result()
-                        .map_err(anyhow::Error::msg)?;
+                        .map_err(anyhow::Error::msg)
+                        .context("get definitions returned error")?;
 
                     let Some(definitions) = definitions else {
                         continue;
@@ -156,11 +159,27 @@ async fn get_steps<P: LanguageProvider>(
                                 include_declaration: false,
                             },
                         })
-                        .await?
-                        .result
-                        .as_result()
-                        .map_err(anyhow::Error::msg)?
-                        .expect("failed to get references");
+                        .await
+                        .context("here")?
+                        .result;
+
+                    dbg!(&references);
+
+                    let references = match references {
+                        JsonRpcResult::Result(references) => references,
+                        JsonRpcResult::Error(error) => {
+                            dbg!(&error);
+                            if error.code == -32601 {
+                                continue;
+                            } else {
+                                break;
+                            }
+                        }
+                    };
+
+                    let Some(references) = references else {
+                        continue;
+                    };
 
                     next_targets.extend(references.into_iter().map(location_to_step));
                     worked = true;
@@ -185,7 +204,8 @@ async fn get_steps<P: LanguageProvider>(
                     next_target,
                     new_steps.clone(),
                 )
-                .await?
+                .await
+                .context("recursion")?
                 {
                     return Ok(Some(next_step));
                 }

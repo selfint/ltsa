@@ -68,7 +68,9 @@ impl LanguageProvider for SolidityLanguageProvider {
                     vec![step.clone()],
                 )])
             }
-            _ => None,
+            _ => {
+                todo!()
+            }
         }
     }
 }

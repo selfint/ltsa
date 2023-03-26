@@ -41,12 +41,10 @@ fn get_temp_dir() -> TempDir {
 #[tokio::test]
 async fn test_solidity() {
     let root_dir = get_temp_dir();
-    _test_solidity(root_dir.path())
-        .await
-        .expect("solidity test failed");
+    _test_solidity(root_dir.path()).await;
 }
 
-async fn _test_solidity(root_dir: &Path) -> Result<()> {
+async fn _test_solidity(root_dir: &Path) {
     let mut child = start_solidity_ls();
     let stdin = child.stdin.take().unwrap();
     let stdout = child.stdout.take().unwrap();
@@ -59,8 +57,8 @@ async fn _test_solidity(root_dir: &Path) -> Result<()> {
     let stderr2 = child2.stderr.take().unwrap();
     let (lsp_client2, handles2) = lsp_client::clients::stdio_client(stdin2, stdout2, stderr2);
 
-    init_lsp(&lsp_client, root_dir).await?;
-    init_lsp(&lsp_client2, root_dir).await?;
+    init_lsp(&lsp_client, root_dir).await.unwrap();
+    init_lsp(&lsp_client2, root_dir).await.unwrap();
 
     let pub_query = (
         Query::new(
@@ -98,13 +96,14 @@ async fn _test_solidity(root_dir: &Path) -> Result<()> {
 
     let steps = pub2fn::get_all_paths(
         root_dir,
-        &[&lsp_client2],
+        &[&lsp_client2, &lsp_client],
         tree_sitter_solidity::language(),
         pub_query,
         hacky_query,
         SolidityLanguageProvider,
     )
-    .await?;
+    .await
+    .unwrap();
 
     let debug_steps = steps
         .into_iter()
@@ -159,8 +158,6 @@ async fn _test_solidity(root_dir: &Path) -> Result<()> {
     for handle in handles2 {
         handle.abort();
     }
-
-    Ok(())
 }
 
 async fn init_lsp(
