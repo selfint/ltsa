@@ -36,7 +36,6 @@ impl LanguageProvider for SolidityLanguageProvider {
             previous_step.and_then(|p| p.context.as_ref()),
         ) {
             ("identifier", "member_expression", None) => {
-                dbg!(parent.to_sexp());
                 // if we are a property
                 if parent.child_by_field_name("property") == Some(node) {
                     dbg!("got property, next step is object");
@@ -53,13 +52,20 @@ impl LanguageProvider for SolidityLanguageProvider {
                         vec![step.clone(), next_step],
                     )])
                 } else {
-                    todo!("we are object")
+                    dbg!("got object, finding definition");
+                    Some(vec![(
+                        LspMethod::Definition,
+                        step.clone(),
+                        vec![step.clone()],
+                    )])
                 }
             }
-            _ => {
-                // todo!()
-                None
-            }
+            ("identifier", "variable_declaration", None) => Some(vec![(
+                LspMethod::References,
+                step.clone(),
+                vec![step.clone()],
+            )]),
+            _ => None,
         }
     }
 }

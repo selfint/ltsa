@@ -152,10 +152,6 @@ async fn get_steps<P: LanguageProvider>(
         dbg!(next_targets.len());
 
         let mut new_steps = steps.clone();
-        dbg!(steps_from_dst_to_next
-            .iter()
-            .map(|s| s.context.as_ref())
-            .collect::<Vec<_>>());
         new_steps.extend(steps_from_dst_to_next);
 
         for next_target in &next_targets {
