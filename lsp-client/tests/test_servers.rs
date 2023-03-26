@@ -24,6 +24,16 @@ fn start_solidity_ls() -> Child {
         .expect("failed to start rust analyzer")
 }
 
+fn start_solidity_solc_lsp() -> Child {
+    Command::new("solc")
+        .arg("--lsp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("failed to start rust analyzer")
+}
+
 fn start_python_language_server() -> Child {
     Command::new("pyls")
         .stdin(Stdio::piped())
@@ -65,6 +75,11 @@ async fn test_rust_analyzer() {
 #[tokio::test]
 async fn test_solidity_ls() {
     test_server!(start_solidity_ls);
+}
+
+#[tokio::test]
+async fn test_solidity_solc_lsp() {
+    test_server!(start_solidity_solc_lsp);
 }
 
 #[tokio::test]
