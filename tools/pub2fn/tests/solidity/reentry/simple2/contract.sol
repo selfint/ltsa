@@ -39,7 +39,7 @@ contract EtherStore {
         return msg.sender;
     }
 
-    function foo(address a) private pure returns (address) {
+    function foo(address a, address b) private pure returns (address) {
         return a;
     }
 
@@ -47,6 +47,8 @@ contract EtherStore {
         address sender = getSender();
 
         address bar = foo(sender);
+
+	address w = bar;
 
         uint bal = balances[bar];
         require(bal > 0);

@@ -11,11 +11,15 @@ use std::{
 };
 use tree_sitter::{Language, Node, Query, QueryCursor};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub enum LspMethod {
     Nop,
     Definition,
     References,
+    ReverseDefinition {
+        query: (Query, u32),
+        language: Language,
+    },
 }
 
 pub trait LanguageProvider: Send + Sync {
@@ -43,6 +47,7 @@ pub async fn get_all_paths<P: LanguageProvider>(
     for pub_location in &pub_locations {
         for hacky_location in &hacky_locations {
             if let Some(mut steps) = get_steps(
+                root_dir,
                 lsp_client,
                 &language_provider,
                 pub_location,
@@ -81,6 +86,7 @@ impl<C> Step<C> {
 
 #[async_recursion]
 async fn get_steps<P: LanguageProvider>(
+    root_dir: &Path,
     lsp_client: &LspClient,
     language_provider: &P,
     src: &Step<P::Context>,
@@ -99,6 +105,9 @@ async fn get_steps<P: LanguageProvider>(
         let mut next_targets = vec![];
         match method {
             LspMethod::Nop => next_targets.push(next_step),
+            LspMethod::ReverseDefinition { query, language } => {
+                next_targets.extend(reverse_definition(root_dir, lsp_client, next_step));
+            }
             LspMethod::Definition => {
                 let definitions = lsp_client
                     .request::<GotoDefinition>(GotoDeclarationParams {
@@ -157,6 +166,7 @@ async fn get_steps<P: LanguageProvider>(
         for next_target in &next_targets {
             if !steps.contains(next_target) && next_target != dst {
                 if let Some(next_step) = get_steps(
+                    root_dir,
                     lsp_client,
                     language_provider,
                     src,
@@ -172,6 +182,14 @@ async fn get_steps<P: LanguageProvider>(
     }
 
     Ok(None)
+}
+
+fn reverse_definition<C>(
+    root_dir: &Path,
+    lsp_client: &LspClient,
+    next_step: Step<C>,
+) -> Vec<Step<C>> {
+    todo!()
 }
 
 fn get_query_locations<C>(
