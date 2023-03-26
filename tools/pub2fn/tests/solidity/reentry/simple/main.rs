@@ -71,20 +71,22 @@ impl LanguageProvider for SolidityLanguageProvider {
         let node = get_node(step, tree.root_node());
         let parent = node.parent().unwrap();
 
+        eprintln!(
+            "got step with node kind: {:?} / parent: {:?} / context: {:?}, line:\n\n{}\n{}\n",
+            node.kind(),
+            parent.kind(),
+            step.context,
+            get_step_line(step),
+            " ".repeat(node.start_position().column)
+                + &"^".repeat(node.end_position().column - node.start_position().column)
+        );
+
         match (
             node.kind(),
             parent.kind(),
             previous_step.and_then(|p| p.context.as_ref()),
         ) {
             ("identifier", "member_expression", None) => {
-                eprintln!(
-                    "node kind: {:?} / parent: {:?} / context: {:?}, line:\n\n{}\n\n",
-                    node.kind(),
-                    parent.kind(),
-                    step.context,
-                    get_step_line(step)
-                );
-
                 dbg!(parent.to_sexp());
                 // if we are a property
                 if parent.child_by_field_name("property") == Some(node) {
@@ -106,15 +108,8 @@ impl LanguageProvider for SolidityLanguageProvider {
                 }
             }
             _ => {
-                eprintln!(
-                    "unexpected node kind: {:?} / parent: {:?} / context: {:?}, line:\n\n{}\n{}\n",
-                    node.kind(),
-                    parent.kind(),
-                    step.context,
-                    get_step_line(step),
-                    " ".repeat(node.start_position().column) + "^"
-                );
-                todo!()
+                // todo!()
+                None
             }
         }
     }
@@ -161,11 +156,11 @@ async fn _test_solidity() -> Result<()> {
                 (#match? @obj "msg")
                 property: (identifier) @prop
                 (#match? @prop "sender")
-            )
+            ) @pub
             "#,
         )
         .unwrap(),
-        1,
+        2,
     );
 
     let hacky_query = (
@@ -205,26 +200,72 @@ async fn _test_solidity() -> Result<()> {
                 .map(|s| {
                     let path = s.path.file_name().unwrap().to_str().unwrap().to_string();
                     let source = String::from_utf8(std::fs::read(&s.path).unwrap()).unwrap();
-                    let mut new_lines = vec![];
+                    let mut snippet = vec![];
+                    let scroll = 5;
+                    let start_line = s.start.0 - scroll.min(s.start.0);
+                    let end_line = s.end.0 + scroll;
                     for (i, line) in source.lines().enumerate() {
-                        new_lines.push(line.to_string());
+                        if i < start_line as usize || i > end_line as usize {
+                            continue;
+                        }
+
+                        snippet.push(line.to_string());
                         if i == s.start.0 as usize {
-                            let mut pointer = " ".repeat(s.start.1 as usize) + "^";
+                            let mut pointer = " ".repeat(s.start.1 as usize)
+                                + &"^".repeat(s.end.1 as usize - s.start.1 as usize);
                             if let Some(context) = &s.context {
                                 pointer += &format!(" context: {:?}", context);
                             }
-                            new_lines.push(pointer);
+                            snippet.push(pointer);
                         }
                     }
 
-                    (path, new_lines)
+                    let snippet = snippet.join("\n");
+                    format!("# {path} #\n\n{snippet}")
                 })
+                .enumerate()
+                .map(|(i, step_snippet)| format!("Step: {i}\n{step_snippet}"))
                 .collect::<Vec<_>>()
+                .join("\n")
         })
-        .collect::<Vec<_>>();
+        .enumerate()
+        .map(|(i, path_snippets)| format!("Path: {i}\n{path_snippets}"))
+        .collect::<Vec<_>>()
+        .join("\n");
 
-    insta::assert_debug_snapshot!(debug_steps,
-        @""
+    insta::assert_display_snapshot!(debug_steps,
+        @r###"
+    Path: 0
+    Step: 0
+    # contract.sol #
+
+            uint bal = balances[msg.sender];
+            require(bal > 0);
+
+            // address sender = getSender();
+
+            (bool sent, ) = msg.sender.call{value: bal}("");
+                                       ^^^^
+            require(sent, "Failed to send Ether");
+
+            balances[msg.sender] = 0;
+        }
+
+    Step: 1
+    # contract.sol #
+
+            uint bal = balances[msg.sender];
+            require(bal > 0);
+
+            // address sender = getSender();
+
+            (bool sent, ) = msg.sender.call{value: bal}("");
+                            ^^^^^^^^^^
+            require(sent, "Failed to send Ether");
+
+            balances[msg.sender] = 0;
+        }
+    "###
     );
 
     for handle in handles {
@@ -255,11 +296,11 @@ fn test_queries() {
                 (#match? @obj "msg")
                 property: (identifier) @prop
                 (#match? @prop "sender")
-            )
+            ) @pub
             "#,
         )
         .unwrap(),
-        1,
+        2,
     );
 
     let hacky_query = (
@@ -284,7 +325,7 @@ fn test_queries() {
     let node = results[0];
     let node_text = node.utf8_text(text.as_bytes()).unwrap();
     insta::assert_snapshot!(node_text,
-        @"sender"
+        @"msg.sender"
     );
 
     let results = pub2fn::get_query_results(&text, tree.root_node(), &hacky_query.0, hacky_query.1);
