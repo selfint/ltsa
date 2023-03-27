@@ -1,4 +1,4 @@
-use std::{fmt::Debug, path::Path};
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use async_recursion::async_recursion;
@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use lsp_client::client::Client;
 use step::Step;
 use tree_sitter::{Language, Query, Tree};
-use utils::{get_node, get_tree};
+use utils::get_tree;
 
 use crate::utils::get_query_steps;
 
@@ -18,7 +18,7 @@ pub type Stacktrace<C> = Vec<Step<C>>;
 
 #[async_trait]
 pub trait Tracer: Send + Sync {
-    type StepContext: Debug + Default + Clone + Send + Sync;
+    type StepContext: Clone + Send + Sync;
 
     fn get_language(&self) -> Language;
 
