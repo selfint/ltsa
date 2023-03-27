@@ -1,3 +1,4 @@
+use lsp_types::{notification::*, request::*, *};
 use std::process::Stdio;
 use tempfile::{tempdir, TempDir};
 use tokio::process::{Child, Command};
@@ -70,12 +71,8 @@ fn test_queries() {
         0,
     );
 
-    let results = scanexr::tree_sitter_facade::get_query_results(
-        &text,
-        tree.root_node(),
-        &pub_query.0,
-        pub_query.1,
-    );
+    let results =
+        scanexr::utils::get_query_results(&text, tree.root_node(), &pub_query.0, pub_query.1);
     let node_text = results
         .iter()
         .map(|node| {
@@ -100,12 +97,8 @@ fn test_queries() {
     "###
     );
 
-    let results = scanexr::tree_sitter_facade::get_query_results(
-        &text,
-        tree.root_node(),
-        &hacky_query.0,
-        hacky_query.1,
-    );
+    let results =
+        scanexr::utils::get_query_results(&text, tree.root_node(), &hacky_query.0, hacky_query.1);
     let node_text = results
         .iter()
         .map(|node| {
@@ -135,6 +128,65 @@ async fn test_solidity() {
 async fn _test_solidity() {
     let root_dir = get_temp_dir();
     let (lsp_client, handles) = lsp_client::clients::child_client(start_solidity_ls());
+
+    lsp_client
+        .request::<Initialize>(InitializeParams {
+            root_uri: Some(Url::from_file_path(root_dir.path()).unwrap()),
+            ..Default::default()
+        })
+        .await
+        .unwrap()
+        .unwrap();
+
+    lsp_client
+        .notify::<Initialized>(InitializedParams {})
+        .unwrap();
+
+    let pub_query = (
+        Query::new(
+            tree_sitter_solidity::language(),
+            r#"
+            (member_expression
+                object: (identifier) @obj
+                (#match? @obj "msg")
+                property: (identifier) @prop
+                (#match? @prop "sender")
+            ) @pub
+            "#,
+        )
+        .unwrap(),
+        2,
+    );
+
+    let hacky_query = (
+        Query::new(
+            tree_sitter_solidity::language(),
+            r#"
+        (call_expression
+            function: (struct_expression
+                type: (member_expression
+                    property: (identifier) @hacky
+                    (#match? @hacky "call")
+                )
+            )
+        )
+        "#,
+        )
+        .unwrap(),
+        0,
+    );
+
+    let tracer = scanexr::tracers::solidity::SolidityTracer;
+
+    let stacktraces = scanexr::get_all_stacktraces(
+        &tracer,
+        &lsp_client,
+        root_dir.path(),
+        &[pub_query],
+        &hacky_query,
+    )
+    .await
+    .unwrap();
 
     for handle in handles {
         handle.abort()
