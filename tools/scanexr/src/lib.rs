@@ -5,7 +5,8 @@ use async_recursion::async_recursion;
 use async_trait::async_trait;
 use lsp_client::client::Client;
 use step::Step;
-use tree_sitter::{Language, Query};
+use tree_sitter::{Language, Query, Tree};
+use utils::{get_node, get_tree};
 
 use crate::utils::get_query_steps;
 
@@ -25,6 +26,7 @@ pub trait Tracer: Send + Sync {
     async fn get_stacktraces(
         &self,
         lsp_client: &Client,
+        step_file_tree: Tree,
         step: &Step<Self::StepContext>,
         stop_at: &[Step<Self::StepContext>],
     ) -> Result<Vec<Stacktrace<Self::StepContext>>>;
@@ -71,7 +73,11 @@ async fn _get_all_stacktraces<T: Tracer>(
     stop_at: &[Step<T::StepContext>],
 ) -> Result<Vec<Stacktrace<T::StepContext>>> {
     // get stacktraces leading to step
-    let stacktraces = tracer.get_stacktraces(lsp_client, step, stop_at).await?;
+    let step_file_tree = get_tree(step);
+
+    let stacktraces = tracer
+        .get_stacktraces(lsp_client, step_file_tree, step, stop_at)
+        .await?;
 
     // complete stacktraces leading to step
     let mut completed_stacktraces = vec![];

@@ -4,7 +4,7 @@ use crate::{Stacktrace, Step, Tracer};
 use anyhow::Result;
 use async_trait::async_trait;
 use lsp_client::client::Client;
-use tree_sitter::Language;
+use tree_sitter::{Language, Tree};
 
 pub struct SolidityTracer;
 
@@ -22,6 +22,7 @@ impl Tracer for SolidityTracer {
     async fn get_stacktraces(
         &self,
         lsp_client: &Client,
+        step_file_tree: Tree,
         step: &Step<Self::StepContext>,
         stop_at: &[Step<Self::StepContext>],
     ) -> Result<Vec<Stacktrace<Self::StepContext>>> {
@@ -29,8 +30,7 @@ impl Tracer for SolidityTracer {
             return Ok(vec![vec![step.clone()]]);
         }
 
-        let tree = get_tree(step);
-        let node = get_node(step, tree.root_node());
+        let node = get_node(step, step_file_tree.root_node());
         let parent = node.parent().unwrap();
 
         debug_node_step(&node, &parent, step);
