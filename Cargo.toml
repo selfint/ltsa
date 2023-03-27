@@ -1,2 +1,2 @@
 [workspace]
-members = ["jsonrpc", "lsp-client", "tools/pub2fn", "tools/scanexr"]
+members = ["jsonrpc", "lsp-client", "tools/scanexr"]

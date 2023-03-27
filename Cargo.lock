@@ -292,25 +292,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pub2fn"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-recursion",
- "insta",
- "jsonrpc",
- "lsp-client",
- "lsp-types",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tree-sitter",
- "tree-sitter-python",
- "tree-sitter-solidity",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
