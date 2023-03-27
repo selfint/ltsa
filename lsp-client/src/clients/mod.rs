@@ -1,3 +1,3 @@
 mod stdio;
 
-pub use stdio::stdio_client;
+pub use stdio::{child_client, stdio_client};

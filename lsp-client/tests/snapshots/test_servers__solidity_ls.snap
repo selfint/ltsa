@@ -3,99 +3,93 @@ source: lsp-client/tests/test_servers.rs
 expression: init_resp
 ---
 Ok(
-    Response {
-        jsonrpc: "2.0",
-        result: Result(
-            InitializeResult {
-                capabilities: ServerCapabilities {
-                    position_encoding: None,
-                    text_document_sync: Some(
-                        Kind(
-                            Incremental,
-                        ),
+    Ok(
+        InitializeResult {
+            capabilities: ServerCapabilities {
+                position_encoding: None,
+                text_document_sync: Some(
+                    Kind(
+                        Incremental,
                     ),
-                    selection_range_provider: None,
-                    hover_provider: Some(
-                        Simple(
-                            true,
-                        ),
+                ),
+                selection_range_provider: None,
+                hover_provider: Some(
+                    Simple(
+                        true,
                     ),
-                    completion_provider: Some(
-                        CompletionOptions {
-                            resolve_provider: None,
-                            trigger_characters: Some(
-                                [
-                                    ".",
-                                ],
-                            ),
-                            all_commit_characters: None,
-                            work_done_progress_options: WorkDoneProgressOptions {
-                                work_done_progress: None,
-                            },
-                            completion_item: None,
+                ),
+                completion_provider: Some(
+                    CompletionOptions {
+                        resolve_provider: None,
+                        trigger_characters: Some(
+                            [
+                                ".",
+                            ],
+                        ),
+                        all_commit_characters: None,
+                        work_done_progress_options: WorkDoneProgressOptions {
+                            work_done_progress: None,
                         },
-                    ),
-                    signature_help_provider: Some(
-                        SignatureHelpOptions {
-                            trigger_characters: Some(
-                                [
-                                    "(",
-                                ],
-                            ),
-                            retrigger_characters: None,
-                            work_done_progress_options: WorkDoneProgressOptions {
-                                work_done_progress: None,
-                            },
+                        completion_item: None,
+                    },
+                ),
+                signature_help_provider: Some(
+                    SignatureHelpOptions {
+                        trigger_characters: Some(
+                            [
+                                "(",
+                            ],
+                        ),
+                        retrigger_characters: None,
+                        work_done_progress_options: WorkDoneProgressOptions {
+                            work_done_progress: None,
                         },
+                    },
+                ),
+                definition_provider: Some(
+                    Left(
+                        true,
                     ),
-                    definition_provider: Some(
-                        Left(
-                            true,
-                        ),
+                ),
+                type_definition_provider: None,
+                implementation_provider: None,
+                references_provider: Some(
+                    Left(
+                        true,
                     ),
-                    type_definition_provider: None,
-                    implementation_provider: None,
-                    references_provider: Some(
-                        Left(
-                            true,
-                        ),
+                ),
+                document_highlight_provider: None,
+                document_symbol_provider: None,
+                workspace_symbol_provider: None,
+                code_action_provider: None,
+                code_lens_provider: None,
+                document_formatting_provider: Some(
+                    Left(
+                        true,
                     ),
-                    document_highlight_provider: None,
-                    document_symbol_provider: None,
-                    workspace_symbol_provider: None,
-                    code_action_provider: None,
-                    code_lens_provider: None,
-                    document_formatting_provider: Some(
-                        Left(
-                            true,
-                        ),
+                ),
+                document_range_formatting_provider: None,
+                document_on_type_formatting_provider: None,
+                rename_provider: Some(
+                    Left(
+                        true,
                     ),
-                    document_range_formatting_provider: None,
-                    document_on_type_formatting_provider: None,
-                    rename_provider: Some(
-                        Left(
-                            true,
-                        ),
-                    ),
-                    document_link_provider: None,
-                    color_provider: None,
-                    folding_range_provider: None,
-                    declaration_provider: None,
-                    execute_command_provider: None,
-                    workspace: None,
-                    call_hierarchy_provider: None,
-                    semantic_tokens_provider: None,
-                    moniker_provider: None,
-                    inline_value_provider: None,
-                    inlay_hint_provider: None,
-                    linked_editing_range_provider: None,
-                    experimental: None,
-                },
-                server_info: None,
+                ),
+                document_link_provider: None,
+                color_provider: None,
+                folding_range_provider: None,
+                declaration_provider: None,
+                execute_command_provider: None,
+                workspace: None,
+                call_hierarchy_provider: None,
+                semantic_tokens_provider: None,
+                moniker_provider: None,
+                inline_value_provider: None,
+                inlay_hint_provider: None,
+                linked_editing_range_provider: None,
+                experimental: None,
             },
-        ),
-        id: Some(
-            0,
-        ),
-    },
+            server_info: None,
+        },
+    ),
 )

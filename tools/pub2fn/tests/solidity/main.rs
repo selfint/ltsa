@@ -48,10 +48,7 @@ async fn _test_solidity(root_dir: &Path) -> Result<()> {
             root_uri: Some(Url::from_file_path(root_dir).unwrap()),
             ..Default::default()
         })
-        .await?
-        .result
-        .as_result()
-        .map_err(anyhow::Error::msg)?;
+        .await??;
 
     lsp_client.notify::<Initialized>(InitializedParams {})?;
 

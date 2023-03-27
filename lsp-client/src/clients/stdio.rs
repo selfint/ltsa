@@ -1,11 +1,19 @@
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    process::{ChildStderr, ChildStdin, ChildStdout},
+    process::{Child, ChildStderr, ChildStdin, ChildStdout},
     sync::mpsc::{unbounded_channel, UnboundedSender},
     task::JoinHandle,
 };
 
 use crate::client::Client;
+
+pub fn child_client(mut child: Child) -> (Client, Vec<JoinHandle<()>>) {
+    let stdin = child.stdin.take().unwrap();
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
+
+    stdio_client(stdin, stdout, stderr)
+}
 
 pub fn stdio_client(
     mut stdin: ChildStdin,

@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display};
+use std::{
+    error::Error,
+    fmt::{Debug, Display},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +44,8 @@ pub struct JsonRpcError<E> {
     pub message: String,
     pub data: Option<E>,
 }
+
+impl<E: Debug> Error for JsonRpcError<E> {}
 
 impl<E: Debug> Display for JsonRpcError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

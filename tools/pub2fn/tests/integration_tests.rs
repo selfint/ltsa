@@ -1,2 +1,1 @@
-mod python;
 mod solidity;

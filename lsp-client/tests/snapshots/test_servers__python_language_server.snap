@@ -3,172 +3,166 @@ source: lsp-client/tests/test_servers.rs
 expression: init_resp
 ---
 Ok(
-    Response {
-        jsonrpc: "2.0",
-        result: Result(
-            InitializeResult {
-                capabilities: ServerCapabilities {
-                    position_encoding: None,
-                    text_document_sync: Some(
-                        Options(
-                            TextDocumentSyncOptions {
-                                open_close: Some(
-                                    true,
-                                ),
-                                change: Some(
-                                    Incremental,
-                                ),
-                                will_save: None,
-                                will_save_wait_until: None,
-                                save: Some(
-                                    SaveOptions(
-                                        SaveOptions {
-                                            include_text: Some(
-                                                true,
-                                            ),
-                                        },
-                                    ),
-                                ),
-                            },
-                        ),
-                    ),
-                    selection_range_provider: None,
-                    hover_provider: Some(
-                        Simple(
-                            true,
-                        ),
-                    ),
-                    completion_provider: Some(
-                        CompletionOptions {
-                            resolve_provider: Some(
-                                false,
+    Ok(
+        InitializeResult {
+            capabilities: ServerCapabilities {
+                position_encoding: None,
+                text_document_sync: Some(
+                    Options(
+                        TextDocumentSyncOptions {
+                            open_close: Some(
+                                true,
                             ),
-                            trigger_characters: Some(
-                                [
-                                    ".",
-                                ],
+                            change: Some(
+                                Incremental,
                             ),
-                            all_commit_characters: None,
-                            work_done_progress_options: WorkDoneProgressOptions {
-                                work_done_progress: None,
-                            },
-                            completion_item: None,
-                        },
-                    ),
-                    signature_help_provider: Some(
-                        SignatureHelpOptions {
-                            trigger_characters: Some(
-                                [
-                                    "(",
-                                    ",",
-                                    "=",
-                                ],
-                            ),
-                            retrigger_characters: None,
-                            work_done_progress_options: WorkDoneProgressOptions {
-                                work_done_progress: None,
-                            },
-                        },
-                    ),
-                    definition_provider: Some(
-                        Left(
-                            true,
-                        ),
-                    ),
-                    type_definition_provider: None,
-                    implementation_provider: None,
-                    references_provider: Some(
-                        Left(
-                            true,
-                        ),
-                    ),
-                    document_highlight_provider: Some(
-                        Left(
-                            true,
-                        ),
-                    ),
-                    document_symbol_provider: Some(
-                        Left(
-                            true,
-                        ),
-                    ),
-                    workspace_symbol_provider: None,
-                    code_action_provider: Some(
-                        Simple(
-                            true,
-                        ),
-                    ),
-                    code_lens_provider: Some(
-                        CodeLensOptions {
-                            resolve_provider: Some(
-                                false,
-                            ),
-                        },
-                    ),
-                    document_formatting_provider: Some(
-                        Left(
-                            true,
-                        ),
-                    ),
-                    document_range_formatting_provider: Some(
-                        Left(
-                            true,
-                        ),
-                    ),
-                    document_on_type_formatting_provider: None,
-                    rename_provider: Some(
-                        Left(
-                            true,
-                        ),
-                    ),
-                    document_link_provider: None,
-                    color_provider: None,
-                    folding_range_provider: Some(
-                        Simple(
-                            true,
-                        ),
-                    ),
-                    declaration_provider: None,
-                    execute_command_provider: Some(
-                        ExecuteCommandOptions {
-                            commands: [],
-                            work_done_progress_options: WorkDoneProgressOptions {
-                                work_done_progress: None,
-                            },
-                        },
-                    ),
-                    workspace: Some(
-                        WorkspaceServerCapabilities {
-                            workspace_folders: Some(
-                                WorkspaceFoldersServerCapabilities {
-                                    supported: Some(
-                                        true,
-                                    ),
-                                    change_notifications: Some(
-                                        Left(
+                            will_save: None,
+                            will_save_wait_until: None,
+                            save: Some(
+                                SaveOptions(
+                                    SaveOptions {
+                                        include_text: Some(
                                             true,
                                         ),
-                                    ),
-                                },
+                                    },
+                                ),
                             ),
-                            file_operations: None,
                         },
                     ),
-                    call_hierarchy_provider: None,
-                    semantic_tokens_provider: None,
-                    moniker_provider: None,
-                    inline_value_provider: None,
-                    inlay_hint_provider: None,
-                    linked_editing_range_provider: None,
-                    experimental: Some(
-                        Object {},
+                ),
+                selection_range_provider: None,
+                hover_provider: Some(
+                    Simple(
+                        true,
                     ),
-                },
-                server_info: None,
+                ),
+                completion_provider: Some(
+                    CompletionOptions {
+                        resolve_provider: Some(
+                            false,
+                        ),
+                        trigger_characters: Some(
+                            [
+                                ".",
+                            ],
+                        ),
+                        all_commit_characters: None,
+                        work_done_progress_options: WorkDoneProgressOptions {
+                            work_done_progress: None,
+                        },
+                        completion_item: None,
+                    },
+                ),
+                signature_help_provider: Some(
+                    SignatureHelpOptions {
+                        trigger_characters: Some(
+                            [
+                                "(",
+                                ",",
+                                "=",
+                            ],
+                        ),
+                        retrigger_characters: None,
+                        work_done_progress_options: WorkDoneProgressOptions {
+                            work_done_progress: None,
+                        },
+                    },
+                ),
+                definition_provider: Some(
+                    Left(
+                        true,
+                    ),
+                ),
+                type_definition_provider: None,
+                implementation_provider: None,
+                references_provider: Some(
+                    Left(
+                        true,
+                    ),
+                ),
+                document_highlight_provider: Some(
+                    Left(
+                        true,
+                    ),
+                ),
+                document_symbol_provider: Some(
+                    Left(
+                        true,
+                    ),
+                ),
+                workspace_symbol_provider: None,
+                code_action_provider: Some(
+                    Simple(
+                        true,
+                    ),
+                ),
+                code_lens_provider: Some(
+                    CodeLensOptions {
+                        resolve_provider: Some(
+                            false,
+                        ),
+                    },
+                ),
+                document_formatting_provider: Some(
+                    Left(
+                        true,
+                    ),
+                ),
+                document_range_formatting_provider: Some(
+                    Left(
+                        true,
+                    ),
+                ),
+                document_on_type_formatting_provider: None,
+                rename_provider: Some(
+                    Left(
+                        true,
+                    ),
+                ),
+                document_link_provider: None,
+                color_provider: None,
+                folding_range_provider: Some(
+                    Simple(
+                        true,
+                    ),
+                ),
+                declaration_provider: None,
+                execute_command_provider: Some(
+                    ExecuteCommandOptions {
+                        commands: [],
+                        work_done_progress_options: WorkDoneProgressOptions {
+                            work_done_progress: None,
+                        },
+                    },
+                ),
+                workspace: Some(
+                    WorkspaceServerCapabilities {
+                        workspace_folders: Some(
+                            WorkspaceFoldersServerCapabilities {
+                                supported: Some(
+                                    true,
+                                ),
+                                change_notifications: Some(
+                                    Left(
+                                        true,
+                                    ),
+                                ),
+                            },
+                        ),
+                        file_operations: None,
+                    },
+                ),
+                call_hierarchy_provider: None,
+                semantic_tokens_provider: None,
+                moniker_provider: None,
+                inline_value_provider: None,
+                inlay_hint_provider: None,
+                linked_editing_range_provider: None,
+                experimental: Some(
+                    Object {},
+                ),
             },
-        ),
-        id: Some(
-            0,
-        ),
-    },
+            server_info: None,
+        },
+    ),
 )

@@ -1,5 +1,8 @@
 use anyhow::Result;
-use jsonrpc::{client::Client as JsonRpcClient, types::Response};
+use jsonrpc::{
+    client::Client as JsonRpcClient,
+    types::{JsonRpcError, Response},
+};
 use lsp_types::{notification::Notification as LspNotification, request::Request as LspRequest};
 use serde_json::Value;
 use tokio::{
@@ -36,13 +39,19 @@ impl Client {
         }
     }
 
-    pub async fn request<R>(&self, params: R::Params) -> Result<Response<R::Result, Value>>
+    pub async fn request<R>(
+        &self,
+        params: R::Params,
+    ) -> Result<Result<R::Result, JsonRpcError<Value>>>
     where
         R: LspRequest,
     {
-        self.jsonrpc_client
+        Ok(self
+            .jsonrpc_client
             .request(R::METHOD.to_string(), Some(params))
-            .await
+            .await?
+            .result
+            .as_result())
     }
 
     pub fn notify<R>(&self, params: R::Params) -> Result<()>

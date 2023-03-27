@@ -3,189 +3,183 @@ source: lsp-client/tests/test_servers.rs
 expression: init_resp
 ---
 Ok(
-    Response {
-        jsonrpc: "2.0",
-        result: Result(
-            InitializeResult {
-                capabilities: ServerCapabilities {
-                    position_encoding: None,
-                    text_document_sync: Some(
-                        Options(
-                            TextDocumentSyncOptions {
-                                open_close: Some(
+    Ok(
+        InitializeResult {
+            capabilities: ServerCapabilities {
+                position_encoding: None,
+                text_document_sync: Some(
+                    Options(
+                        TextDocumentSyncOptions {
+                            open_close: Some(
+                                true,
+                            ),
+                            change: Some(
+                                Incremental,
+                            ),
+                            will_save: None,
+                            will_save_wait_until: None,
+                            save: None,
+                        },
+                    ),
+                ),
+                selection_range_provider: None,
+                hover_provider: Some(
+                    Simple(
+                        true,
+                    ),
+                ),
+                completion_provider: None,
+                signature_help_provider: None,
+                definition_provider: Some(
+                    Left(
+                        true,
+                    ),
+                ),
+                type_definition_provider: None,
+                implementation_provider: Some(
+                    Simple(
+                        true,
+                    ),
+                ),
+                references_provider: None,
+                document_highlight_provider: None,
+                document_symbol_provider: None,
+                workspace_symbol_provider: None,
+                code_action_provider: None,
+                code_lens_provider: None,
+                document_formatting_provider: None,
+                document_range_formatting_provider: None,
+                document_on_type_formatting_provider: None,
+                rename_provider: Some(
+                    Left(
+                        true,
+                    ),
+                ),
+                document_link_provider: None,
+                color_provider: None,
+                folding_range_provider: None,
+                declaration_provider: None,
+                execute_command_provider: None,
+                workspace: None,
+                call_hierarchy_provider: None,
+                semantic_tokens_provider: Some(
+                    SemanticTokensOptions(
+                        SemanticTokensOptions {
+                            work_done_progress_options: WorkDoneProgressOptions {
+                                work_done_progress: None,
+                            },
+                            legend: SemanticTokensLegend {
+                                token_types: [
+                                    SemanticTokenType(
+                                        "class",
+                                    ),
+                                    SemanticTokenType(
+                                        "comment",
+                                    ),
+                                    SemanticTokenType(
+                                        "enum",
+                                    ),
+                                    SemanticTokenType(
+                                        "enumMember",
+                                    ),
+                                    SemanticTokenType(
+                                        "event",
+                                    ),
+                                    SemanticTokenType(
+                                        "function",
+                                    ),
+                                    SemanticTokenType(
+                                        "interface",
+                                    ),
+                                    SemanticTokenType(
+                                        "keyword",
+                                    ),
+                                    SemanticTokenType(
+                                        "macro",
+                                    ),
+                                    SemanticTokenType(
+                                        "method",
+                                    ),
+                                    SemanticTokenType(
+                                        "modifier",
+                                    ),
+                                    SemanticTokenType(
+                                        "number",
+                                    ),
+                                    SemanticTokenType(
+                                        "operator",
+                                    ),
+                                    SemanticTokenType(
+                                        "parameter",
+                                    ),
+                                    SemanticTokenType(
+                                        "property",
+                                    ),
+                                    SemanticTokenType(
+                                        "string",
+                                    ),
+                                    SemanticTokenType(
+                                        "struct",
+                                    ),
+                                    SemanticTokenType(
+                                        "type",
+                                    ),
+                                    SemanticTokenType(
+                                        "typeParameter",
+                                    ),
+                                    SemanticTokenType(
+                                        "variable",
+                                    ),
+                                ],
+                                token_modifiers: [
+                                    SemanticTokenModifier(
+                                        "abstract",
+                                    ),
+                                    SemanticTokenModifier(
+                                        "declaration",
+                                    ),
+                                    SemanticTokenModifier(
+                                        "definition",
+                                    ),
+                                    SemanticTokenModifier(
+                                        "deprecated",
+                                    ),
+                                    SemanticTokenModifier(
+                                        "documentation",
+                                    ),
+                                    SemanticTokenModifier(
+                                        "modification",
+                                    ),
+                                    SemanticTokenModifier(
+                                        "readonly",
+                                    ),
+                                ],
+                            },
+                            range: Some(
+                                false,
+                            ),
+                            full: Some(
+                                Bool(
                                     true,
                                 ),
-                                change: Some(
-                                    Incremental,
-                                ),
-                                will_save: None,
-                                will_save_wait_until: None,
-                                save: None,
-                            },
-                        ),
+                            ),
+                        },
                     ),
-                    selection_range_provider: None,
-                    hover_provider: Some(
-                        Simple(
-                            true,
-                        ),
-                    ),
-                    completion_provider: None,
-                    signature_help_provider: None,
-                    definition_provider: Some(
-                        Left(
-                            true,
-                        ),
-                    ),
-                    type_definition_provider: None,
-                    implementation_provider: Some(
-                        Simple(
-                            true,
-                        ),
-                    ),
-                    references_provider: None,
-                    document_highlight_provider: None,
-                    document_symbol_provider: None,
-                    workspace_symbol_provider: None,
-                    code_action_provider: None,
-                    code_lens_provider: None,
-                    document_formatting_provider: None,
-                    document_range_formatting_provider: None,
-                    document_on_type_formatting_provider: None,
-                    rename_provider: Some(
-                        Left(
-                            true,
-                        ),
-                    ),
-                    document_link_provider: None,
-                    color_provider: None,
-                    folding_range_provider: None,
-                    declaration_provider: None,
-                    execute_command_provider: None,
-                    workspace: None,
-                    call_hierarchy_provider: None,
-                    semantic_tokens_provider: Some(
-                        SemanticTokensOptions(
-                            SemanticTokensOptions {
-                                work_done_progress_options: WorkDoneProgressOptions {
-                                    work_done_progress: None,
-                                },
-                                legend: SemanticTokensLegend {
-                                    token_types: [
-                                        SemanticTokenType(
-                                            "class",
-                                        ),
-                                        SemanticTokenType(
-                                            "comment",
-                                        ),
-                                        SemanticTokenType(
-                                            "enum",
-                                        ),
-                                        SemanticTokenType(
-                                            "enumMember",
-                                        ),
-                                        SemanticTokenType(
-                                            "event",
-                                        ),
-                                        SemanticTokenType(
-                                            "function",
-                                        ),
-                                        SemanticTokenType(
-                                            "interface",
-                                        ),
-                                        SemanticTokenType(
-                                            "keyword",
-                                        ),
-                                        SemanticTokenType(
-                                            "macro",
-                                        ),
-                                        SemanticTokenType(
-                                            "method",
-                                        ),
-                                        SemanticTokenType(
-                                            "modifier",
-                                        ),
-                                        SemanticTokenType(
-                                            "number",
-                                        ),
-                                        SemanticTokenType(
-                                            "operator",
-                                        ),
-                                        SemanticTokenType(
-                                            "parameter",
-                                        ),
-                                        SemanticTokenType(
-                                            "property",
-                                        ),
-                                        SemanticTokenType(
-                                            "string",
-                                        ),
-                                        SemanticTokenType(
-                                            "struct",
-                                        ),
-                                        SemanticTokenType(
-                                            "type",
-                                        ),
-                                        SemanticTokenType(
-                                            "typeParameter",
-                                        ),
-                                        SemanticTokenType(
-                                            "variable",
-                                        ),
-                                    ],
-                                    token_modifiers: [
-                                        SemanticTokenModifier(
-                                            "abstract",
-                                        ),
-                                        SemanticTokenModifier(
-                                            "declaration",
-                                        ),
-                                        SemanticTokenModifier(
-                                            "definition",
-                                        ),
-                                        SemanticTokenModifier(
-                                            "deprecated",
-                                        ),
-                                        SemanticTokenModifier(
-                                            "documentation",
-                                        ),
-                                        SemanticTokenModifier(
-                                            "modification",
-                                        ),
-                                        SemanticTokenModifier(
-                                            "readonly",
-                                        ),
-                                    ],
-                                },
-                                range: Some(
-                                    false,
-                                ),
-                                full: Some(
-                                    Bool(
-                                        true,
-                                    ),
-                                ),
-                            },
-                        ),
-                    ),
-                    moniker_provider: None,
-                    inline_value_provider: None,
-                    inlay_hint_provider: None,
-                    linked_editing_range_provider: None,
-                    experimental: None,
-                },
-                server_info: Some(
-                    ServerInfo {
-                        name: "solc",
-                        version: Some(
-                            "0.8.19",
-                        ),
-                    },
                 ),
+                moniker_provider: None,
+                inline_value_provider: None,
+                inlay_hint_provider: None,
+                linked_editing_range_provider: None,
+                experimental: None,
             },
-        ),
-        id: Some(
-            0,
-        ),
-    },
+            server_info: Some(
+                ServerInfo {
+                    name: "solc",
+                    version: Some(
+                        "0.8.19",
+                    ),
+                },
+            ),
+        },
+    ),
 )

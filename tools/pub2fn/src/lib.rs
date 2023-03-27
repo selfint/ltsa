@@ -126,10 +126,7 @@ async fn get_steps<P: LanguageProvider>(
                             partial_result_token: None,
                         },
                     })
-                    .await?
-                    .result
-                    .as_result()
-                    .map_err(anyhow::Error::msg)?
+                    .await??
                     .expect("failed to get definition");
 
                 match definitions {
@@ -156,10 +153,7 @@ async fn get_steps<P: LanguageProvider>(
                             include_declaration: false,
                         },
                     })
-                    .await?
-                    .result
-                    .as_result()
-                    .map_err(anyhow::Error::msg)?
+                    .await??
                     .expect("failed to get references");
 
                 next_targets.extend(references.into_iter().map(location_to_step))
