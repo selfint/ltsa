@@ -1,78 +1,17 @@
-use std::{
-    fmt::Debug,
-    path::{Path, PathBuf},
-};
+use std::{fmt::Debug, path::Path};
 
 use anyhow::{Context, Result};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use lsp_client::client::Client;
-use lsp_types::Position;
-use tree_sitter::{Language, Point, Query};
+use step::Step;
+use tree_sitter::{Language, Query};
 
 use crate::utils::get_query_steps;
 
+pub mod step;
 pub mod tracers;
 pub mod utils;
-
-#[derive(Debug, Clone, Eq)]
-pub struct Step<C> {
-    pub path: PathBuf,
-    pub start: StepPosition,
-    pub end: StepPosition,
-    pub context: Option<C>,
-}
-
-impl<C> Step<C> {
-    fn new(path: PathBuf, start: impl Into<StepPosition>, end: impl Into<StepPosition>) -> Step<C> {
-        Self {
-            path,
-            start: start.into(),
-            end: end.into(),
-            context: None,
-        }
-    }
-}
-
-impl<C> PartialEq for Step<C> {
-    fn eq(&self, other: &Self) -> bool {
-        self.path == other.path && self.start == other.start && self.end == other.end
-        // && self.context == other.context
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct StepPosition {
-    pub line: usize,
-    pub character: usize,
-}
-
-impl From<Point> for StepPosition {
-    fn from(point: Point) -> Self {
-        Self {
-            line: point.row,
-            character: point.column,
-        }
-    }
-}
-
-impl From<StepPosition> for Point {
-    fn from(step_position: StepPosition) -> Self {
-        Self {
-            row: step_position.line,
-            column: step_position.character,
-        }
-    }
-}
-
-impl From<Position> for StepPosition {
-    fn from(position: Position) -> Self {
-        Self {
-            line: position.line as usize,
-            character: position.character as usize,
-        }
-    }
-}
 
 pub type Stacktrace<C> = Vec<Step<C>>;
 
