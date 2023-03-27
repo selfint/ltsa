@@ -55,39 +55,41 @@ impl From<Point> for Position {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Stacktrace<T: Tracer + ?Sized + Send> {
-    stacktrace: Vec<Step<T::Context>>,
-}
+//#[derive(Debug, Clone, PartialEq, Eq)]
+//pub struct Stacktrace<T: Tracer + ?Sized + Send> {
+//    stacktrace: Vec<Step<T::Context>>,
+//}
+//
+//impl<T: Tracer + ?Sized + Send> Stacktrace<T> {
+//    pub fn new(stacktrace: Vec<Step<T::Context>>) -> Result<Self> {
+//        ensure!(!stacktrace.is_empty(), "can't create empty stacktrace");
+//        Ok(Self { stacktrace })
+//    }
+//
+//    pub fn stacktrace(&self) -> &[Step<T::Context>] {
+//        &self.stacktrace
+//    }
+//
+//    pub fn last(&self) -> &Step<T::Context> {
+//        self.stacktrace.last().expect("got empty stacktrace")
+//    }
+//}
+//
+//impl<T: Tracer + ?Sized + Send> From<Vec<Step<T::Context>>> for Stacktrace<T> {
+//    fn from(value: Vec<Step<T::Context>>) -> Self {
+//        Self { stacktrace: value }
+//    }
+//}
+//
+//impl<T: Tracer + ?Sized + Send> From<Step<T::Context>> for Stacktrace<T> {
+//    fn from(value: Step<T::Context>) -> Self {
+//        Self {
+//            stacktrace: vec![value],
+//        }
+//    }
+//}
 
-impl<T: Tracer + ?Sized + Send> Stacktrace<T> {
-    pub fn new(stacktrace: Vec<Step<T::Context>>) -> Result<Self> {
-        ensure!(!stacktrace.is_empty(), "can't create empty stacktrace");
-        Ok(Self { stacktrace })
-    }
-
-    pub fn stacktrace(&self) -> &[Step<T::Context>] {
-        &self.stacktrace
-    }
-
-    pub fn last(&self) -> &Step<T::Context> {
-        self.stacktrace.last().expect("got empty stacktrace")
-    }
-}
-
-impl<T: Tracer + ?Sized + Send> From<Vec<Step<T::Context>>> for Stacktrace<T> {
-    fn from(value: Vec<Step<T::Context>>) -> Self {
-        Self { stacktrace: value }
-    }
-}
-
-impl<T: Tracer + ?Sized + Send> From<Step<T::Context>> for Stacktrace<T> {
-    fn from(value: Step<T::Context>) -> Self {
-        Self {
-            stacktrace: vec![value],
-        }
-    }
-}
+pub type Stacktrace<C> = Vec<Step<C>>;
 
 #[async_trait]
 pub trait Tracer: Send + Sync {
@@ -101,7 +103,7 @@ pub trait Tracer: Send + Sync {
         lsp_client: &Client,
         step: &Step<Self::Context>,
         stop_at: &[Step<Self::Context>],
-    ) -> Result<Option<Vec<Stacktrace<Self>>>>;
+    ) -> Result<Vec<Stacktrace<Self::Context>>>;
 }
 
 pub async fn get_all_stacktraces<T: Tracer>(
@@ -110,12 +112,11 @@ pub async fn get_all_stacktraces<T: Tracer>(
     root_dir: &Path,
     pub_queries: &[(Query, u32)],
     hacky_query: &(Query, u32),
-) -> Result<Option<Vec<Stacktrace<T>>>> {
-    // get pub locations
+) -> Result<Vec<Stacktrace<T::Context>>> {
     let mut pub_steps = vec![];
     for pub_query in pub_queries {
         let steps = get_query_steps(root_dir, tracer.get_language(), pub_query)
-            .context("failed to get pub query steps")?;
+            .context("getting pub query steps")?;
         for step in steps {
             if !pub_steps.contains(&step) {
                 pub_steps.push(step);
@@ -124,57 +125,41 @@ pub async fn get_all_stacktraces<T: Tracer>(
     }
 
     let hacky_steps = get_query_steps(root_dir, tracer.get_language(), hacky_query)
-        .context("failed to get hacky steps")?;
+        .context("getting hacky steps")?;
 
     let mut all_stacktraces = vec![];
     for hacky_step in &hacky_steps {
-        if let Some(stacktraces) = complete_stacktraces_to(
-            tracer,
-            lsp_client,
-            root_dir,
-            &Stacktrace::from(hacky_step.clone()),
-            &pub_steps,
-        )
-        .await
-        .context("failed to complete stacktraces")?
-        {
-            all_stacktraces.extend(stacktraces);
-        }
+        let stacktraces = _get_all_stacktraces(tracer, lsp_client, hacky_step, &pub_steps)
+            .await
+            .context("completing stacktraces")?;
+
+        all_stacktraces.extend(stacktraces);
     }
 
-    if !all_stacktraces.is_empty() {
-        Ok(Some(all_stacktraces))
-    } else {
-        Ok(None)
-    }
+    Ok(all_stacktraces)
 }
 
 #[async_recursion]
-async fn complete_stacktraces_to<T: Tracer>(
+async fn _get_all_stacktraces<T: Tracer>(
     tracer: &T,
     lsp_client: &Client,
-    root_dir: &Path,
-    stacktrace: &Stacktrace<T>,
+    step: &Step<T::Context>,
     stop_at: &[Step<T::Context>],
-) -> Result<Option<Vec<Stacktrace<T>>>> {
-    let Some(stacktraces) = tracer
-        .get_stacktraces(lsp_client, stacktrace.last(), stop_at)
-        .await? else {
-            return Ok(None);
-        };
+) -> Result<Vec<Stacktrace<T::Context>>> {
+    // get stacktraces leading to step
+    let stacktraces = tracer.get_stacktraces(lsp_client, step, stop_at).await?;
 
-    let mut next_stacktraces = vec![];
+    // complete stacktraces leading to step
+    let mut completed_stacktraces = vec![];
     for stacktrace in stacktraces {
-        if let Some(stacktraces) =
-            complete_stacktraces_to(tracer, lsp_client, root_dir, &stacktrace, stop_at).await?
-        {
-            todo!()
+        let next_stacktraces = _get_all_stacktraces(tracer, lsp_client, step, stop_at).await?;
+        for next_stacktrace in next_stacktraces {
+            let mut completed_stacktrace = stacktrace.clone();
+            completed_stacktrace.extend(next_stacktrace);
+
+            completed_stacktraces.push(completed_stacktrace);
         }
     }
 
-    if !next_stacktraces.is_empty() {
-        Ok(Some(next_stacktraces))
-    } else {
-        Ok(None)
-    }
+    Ok(completed_stacktraces)
 }

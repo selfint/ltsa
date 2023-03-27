@@ -22,7 +22,7 @@ impl Tracer for SolidityTracer {
         lsp_client: &Client,
         step: &Step<Self::Context>,
         stop_at: &[Step<Self::Context>],
-    ) -> Result<Option<Vec<Stacktrace<Self>>>> {
+    ) -> Result<Vec<Stacktrace<Self::Context>>> {
         if stop_at.contains(step) {
             // let stacktrace: Stacktrace<Self> = Stacktrace::from(step.clone());
         }
