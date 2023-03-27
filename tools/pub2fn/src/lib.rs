@@ -44,33 +44,40 @@ pub async fn get_all_paths<P: LanguageProvider>(
     let hacky_locations = get_query_locations(root_dir, language, &hacky_query)?;
 
     let mut step_paths = vec![];
-    for pub_location in &pub_locations {
-        for hacky_location in &hacky_locations {
-            if let Some(mut steps) = get_steps(
-                root_dir,
-                lsp_client,
-                &language_provider,
-                pub_location,
-                hacky_location,
-                vec![],
-            )
-            .await?
-            {
-                steps.reverse();
-                step_paths.push(steps);
-            }
+    for hacky_location in &hacky_locations {
+        if let Some(mut steps) = get_steps(
+            root_dir,
+            lsp_client,
+            &language_provider,
+            &pub_locations,
+            hacky_location,
+            vec![],
+        )
+        .await?
+        {
+            steps.reverse();
+            step_paths.push(steps);
         }
     }
 
     Ok(step_paths)
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(Eq, Debug, Clone)]
 pub struct Step<C> {
     pub path: PathBuf,
     pub start: (u32, u32),
     pub end: (u32, u32),
     pub context: Option<C>,
+}
+
+impl<C: PartialEq> PartialEq for Step<C> {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+            // && self.context == other.context
+            && self.start == other.start
+            && self.end == other.end
+    }
 }
 
 impl<C> Step<C> {
@@ -89,11 +96,11 @@ async fn get_steps<P: LanguageProvider>(
     root_dir: &Path,
     lsp_client: &LspClient,
     language_provider: &P,
-    src: &Step<P::Context>,
+    sources: &[Step<P::Context>],
     dst: &Step<P::Context>,
     steps: Vec<Step<P::Context>>,
 ) -> Result<Option<Vec<Step<P::Context>>>> {
-    if src == dst {
+    if sources.contains(dst) {
         return Ok(Some(steps));
     }
 
@@ -169,7 +176,7 @@ async fn get_steps<P: LanguageProvider>(
                     root_dir,
                     lsp_client,
                     language_provider,
-                    src,
+                    sources,
                     next_target,
                     new_steps.clone(),
                 )

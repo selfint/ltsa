@@ -1,6 +1,6 @@
 use anyhow::Result;
 use lsp_types::{notification::*, request::*, *};
-use pub2fn::language_provider::solidity::SolidityLanguageProvider;
+use pub2fn::language_provider::solidity::{SolidityLanguageProvider, StepContext};
 use std::env;
 use std::path::Path;
 use std::process::Stdio;
@@ -122,7 +122,12 @@ async fn _test_solidity(root_dir: &Path) -> Result<()> {
                             let mut pointer = " ".repeat(s.start.1 as usize)
                                 + &"^".repeat(s.end.1 as usize - s.start.1 as usize);
                             if let Some(context) = &s.context {
-                                pointer += &format!(" context: {:?}", context);
+                                pointer += &format!(
+                                    " context: {:?}",
+                                    match context {
+                                        StepContext::GetReturnValue(_) => "GetReturnValue",
+                                    }
+                                );
                             }
                             snippet.push(pointer);
                         }
@@ -132,17 +137,275 @@ async fn _test_solidity(root_dir: &Path) -> Result<()> {
                     format!("# {path} #\n\n{snippet}")
                 })
                 .enumerate()
-                .map(|(i, step_snippet)| format!("Step: {i}\n{step_snippet}"))
+                .map(|(i, step_snippet)| format!("Step: {i}\n{step_snippet}\n"))
                 .collect::<Vec<_>>()
                 .join("\n")
         })
         .enumerate()
-        .map(|(i, path_snippets)| format!("Path: {i}\n{path_snippets}"))
+        .map(|(i, path_snippets)| format!("Path: {i}\n{path_snippets}\n"))
         .collect::<Vec<_>>()
         .join("\n");
 
     insta::assert_display_snapshot!(debug_steps,
-        @""
+        @r###"
+    Path: 0
+    Step: 0
+    # contract.sol #
+
+            address bar = foo(sender, sender);
+
+            uint bal = balances[bar];
+            require(bal > 0);
+
+            (bool sent, ) = bar.call{value: bal}("");
+                                ^^^^
+            require(sent, "Failed to send Ether");
+
+            balances[bar] = 0;
+        }
+
+
+    Step: 1
+    # contract.sol #
+
+            address bar = foo(sender, sender);
+
+            uint bal = balances[bar];
+            require(bal > 0);
+
+            (bool sent, ) = bar.call{value: bal}("");
+                            ^^^
+            require(sent, "Failed to send Ether");
+
+            balances[bar] = 0;
+        }
+
+
+    Step: 2
+    # contract.sol #
+
+        }
+
+        function withdraw() public {
+            address sender = getSender();
+
+            address bar = foo(sender, sender);
+                    ^^^
+
+            uint bal = balances[bar];
+            require(bal > 0);
+
+            (bool sent, ) = bar.call{value: bal}("");
+
+    Step: 3
+    # contract.sol #
+
+        }
+
+        function withdraw() public {
+            address sender = getSender();
+
+            address bar = foo(sender, sender);
+                          ^^^^^^^^^^^^^^^^^^^
+
+            uint bal = balances[bar];
+            require(bal > 0);
+
+            (bool sent, ) = bar.call{value: bal}("");
+
+    Step: 4
+    # contract.sol #
+
+        }
+
+        function withdraw() public {
+            address sender = getSender();
+
+            address bar = foo(sender, sender);
+                          ^^^ context: "GetReturnValue"
+
+            uint bal = balances[bar];
+            require(bal > 0);
+
+            (bool sent, ) = bar.call{value: bal}("");
+
+    Step: 5
+    # contract.sol #
+
+
+        function getSender() private view returns (address) {
+            return msg.sender;
+        }
+
+        function foo(address a, address b) private pure returns (address) {
+                 ^^^
+            return a;
+        }
+
+        function withdraw() public {
+            address sender = getSender();
+
+    Step: 6
+    # contract.sol #
+
+        function getSender() private view returns (address) {
+            return msg.sender;
+        }
+
+        function foo(address a, address b) private pure returns (address) {
+            return a;
+                   ^ context: "GetReturnValue"
+        }
+
+        function withdraw() public {
+            address sender = getSender();
+
+
+    Step: 7
+    # contract.sol #
+
+        function getSender() private view returns (address) {
+            return msg.sender;
+        }
+
+        function foo(address a, address b) private pure returns (address) {
+            return a;
+                   ^ context: "GetReturnValue"
+        }
+
+        function withdraw() public {
+            address sender = getSender();
+
+
+    Step: 8
+    # contract.sol #
+
+
+        function getSender() private view returns (address) {
+            return msg.sender;
+        }
+
+        function foo(address a, address b) private pure returns (address) {
+                             ^
+            return a;
+        }
+
+        function withdraw() public {
+            address sender = getSender();
+
+    Step: 9
+    # contract.sol #
+
+        }
+
+        function withdraw() public {
+            address sender = getSender();
+
+            address bar = foo(sender, sender);
+                              ^^^^^^
+
+            uint bal = balances[bar];
+            require(bal > 0);
+
+            (bool sent, ) = bar.call{value: bal}("");
+
+    Step: 10
+    # contract.sol #
+
+        }
+
+        function withdraw() public {
+            address sender = getSender();
+
+            address bar = foo(sender, sender);
+                              ^^^^^^
+
+            uint bal = balances[bar];
+            require(bal > 0);
+
+            (bool sent, ) = bar.call{value: bal}("");
+
+    Step: 11
+    # contract.sol #
+
+        function foo(address a, address b) private pure returns (address) {
+            return a;
+        }
+
+        function withdraw() public {
+            address sender = getSender();
+                    ^^^^^^
+
+            address bar = foo(sender, sender);
+
+            uint bal = balances[bar];
+            require(bal > 0);
+
+    Step: 12
+    # contract.sol #
+
+        function foo(address a, address b) private pure returns (address) {
+            return a;
+        }
+
+        function withdraw() public {
+            address sender = getSender();
+                             ^^^^^^^^^^^
+
+            address bar = foo(sender, sender);
+
+            uint bal = balances[bar];
+            require(bal > 0);
+
+    Step: 13
+    # contract.sol #
+
+        function foo(address a, address b) private pure returns (address) {
+            return a;
+        }
+
+        function withdraw() public {
+            address sender = getSender();
+                             ^^^^^^^^^ context: "GetReturnValue"
+
+            address bar = foo(sender, sender);
+
+            uint bal = balances[bar];
+            require(bal > 0);
+
+    Step: 14
+    # contract.sol #
+
+
+        function deposit() public payable {
+            balances[msg.sender] += msg.value;
+        }
+
+        function getSender() private view returns (address) {
+                 ^^^^^^^^^
+            return msg.sender;
+        }
+
+        function foo(address a, address b) private pure returns (address) {
+            return a;
+
+    Step: 15
+    # contract.sol #
+
+        function deposit() public payable {
+            balances[msg.sender] += msg.value;
+        }
+
+        function getSender() private view returns (address) {
+            return msg.sender;
+                   ^^^^^^^^^^ context: "GetReturnValue"
+        }
+
+        function foo(address a, address b) private pure returns (address) {
+            return a;
+        }
+
+    "###
     );
 
     for handle in handles {

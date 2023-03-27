@@ -46,9 +46,7 @@ contract EtherStore {
     function withdraw() public {
         address sender = getSender();
 
-        address bar = foo(sender);
-
-	address w = bar;
+        address bar = foo(sender, sender);
 
         uint bal = balances[bar];
         require(bal > 0);

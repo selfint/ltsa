@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use lsp_types::ParameterLabel;
 use tree_sitter::{Node, Point, Query, Tree};
 
 use crate::{LanguageProvider, LspMethod, Step};
@@ -26,7 +25,7 @@ impl LanguageProvider for SolidityLanguageProvider {
         let parent = node.parent().unwrap();
 
         eprintln!(
-            "got step with node kind: {:?} / parent: {:?} / context: {:?}, line:\n\n{}\n{}\n",
+            "\ngot step with:\nnode kind: {:?}\nparent: {:?}\ncontext: {:?}\nline:\n\n{}\n{}\n\n",
             node.kind(),
             parent.kind(),
             previous_step.and_then(|p| p.context.as_ref()),
@@ -51,11 +50,7 @@ impl LanguageProvider for SolidityLanguageProvider {
                         .expect("got member expression with property but without object");
                     let next_step = step_from_node(step.path.clone(), object);
 
-                    Some(vec![(
-                        LspMethod::Nop,
-                        next_step.clone(),
-                        vec![step.clone(), next_step],
-                    )])
+                    Some(vec![(LspMethod::Nop, next_step, vec![step.clone()])])
                 } else {
                     dbg!("got object, finding definition");
                     Some(vec![(
@@ -86,7 +81,7 @@ impl LanguageProvider for SolidityLanguageProvider {
                 Some(vec![(
                     LspMethod::Definition,
                     next_step.clone(),
-                    vec![step.clone(), next_step],
+                    vec![next_step],
                 )])
             }
             ("identifier", "function_definition", Some(StepContext::GetReturnValue(anchor))) => {
@@ -97,42 +92,68 @@ impl LanguageProvider for SolidityLanguageProvider {
 
                 let query = Query::new(
                     tree_sitter_solidity::language(),
-                    "(return_statement (identifier) @return)",
+                    "(return_statement (_) @return)",
                 )
                 .unwrap();
 
                 let return_values = crate::get_query_results(text, parent, &query, 0);
 
-                dbg!(&return_values);
-
+                // TODO: find all return values
                 let return_value = return_values.first().expect("failed to get return value");
                 let mut next_step = step_from_node(step.path.clone(), *return_value);
                 next_step.context = Some(StepContext::GetReturnValue(anchor.clone()));
 
                 dbg!("got function definition, finding return value");
                 Some(vec![(
-                    LspMethod::Definition,
+                    LspMethod::Nop,
                     next_step.clone(),
                     vec![step.clone(), next_step],
                 )])
             }
+            ("identifier", "return_statement", Some(StepContext::GetReturnValue(anchor))) => {
+                dbg!("get identifier in return statement, finding definition");
+                let mut next_step = step.clone();
+                next_step.context = Some(StepContext::GetReturnValue(anchor.clone()));
+                Some(vec![(
+                    LspMethod::Definition,
+                    next_step.clone(),
+                    vec![next_step],
+                )])
+            }
             ("identifier", "parameter", Some(StepContext::GetReturnValue(anchor))) => {
                 dbg!("return value is a parameter, we are done, returning to anchor");
-                dbg!(parent.parent().unwrap().to_sexp());
                 let fn_def = parent.parent().unwrap();
                 let mut cursor = fn_def.walk();
                 let index = fn_def
                     .named_children(&mut cursor)
                     .position(|p| p == parent)
                     .unwrap();
-                dbg!(index);
-                // let parameters = anchor_node.child(0).unwrap();
 
-                // dbg!(anchor_node, anchor_node.to_sexp(), parameters.to_sexp());
+                let anchor_tree = get_tree(anchor);
+                let anchor_node = get_node(anchor, anchor_tree.root_node());
+                let mut cursor = anchor_node.walk();
+                let anchor_param = anchor_node.named_children(&mut cursor).nth(index).unwrap();
+                let anchor_step: Step<Self::Context> =
+                    step_from_node(anchor.path.clone(), anchor_param);
 
-                todo!()
+                Some(vec![(
+                    LspMethod::Nop,
+                    anchor_step.clone(),
+                    vec![step.clone(), anchor_step],
+                )])
             }
-            _ => None,
+            ("identifier", "call_argument", None) => {
+                dbg!("got identifier in call argument, finding definition");
+                Some(vec![(
+                    LspMethod::Definition,
+                    step.clone(),
+                    vec![step.clone()],
+                )])
+            }
+            _ => {
+                // todo!()
+                None
+            }
         }
     }
 }
