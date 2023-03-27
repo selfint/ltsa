@@ -57,6 +57,13 @@ contract EtherStore {
         return a;
     }
 
+    function hacky(address target, uint amount) public {
+        (bool sent, ) = target.call{value: amount}("");
+        require(sent, "Failed to send Ether");
+
+        balances[target] = 0;
+    }
+
     function withdraw() public {
         address sender = getSender();
 
@@ -65,10 +72,7 @@ contract EtherStore {
         uint bal = balances[bar];
         require(bal > 0);
 
-        (bool sent, ) = bar.call{value: bal}("");
-        require(sent, "Failed to send Ether");
-
-        balances[bar] = 0;
+        hacky(bar, bal);
     }
 
     // Helper function to check the balance of this contract

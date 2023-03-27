@@ -1,5 +1,3 @@
-
-
 // use tokio::sync::Mutex;
 
 use crate::utils::{
@@ -7,16 +5,17 @@ use crate::utils::{
 };
 use crate::{Stacktrace, Step, Tracer};
 
-use anyhow::{ensure, Ok, Result};
+use anyhow::{bail, ensure, Ok, Result};
 use async_trait::async_trait;
 use lsp_client::client::Client;
-use tree_sitter::{Language, Query, Tree};
+use tree_sitter::{Language, Node, Query, Tree};
 
 pub struct SolidityTracer;
 
 #[derive(Debug, Clone)]
 pub enum StepContext {
     GetReturnValue(Box<Step<StepContext>>),
+    FindReference(usize),
 }
 
 #[async_trait]
@@ -99,25 +98,6 @@ impl Tracer for SolidityTracer {
 
                 Ok(Some(vec![vec![function_step]]))
             }
-            ("identifier", "call_expression", _) => {
-                dbg!("got call expression, going to function definition");
-
-                let mut function_definitions = get_step_definitions(lsp_client, step).await?;
-
-                ensure!(
-                    function_definitions.len() <= 1,
-                    "got multiple function definitions"
-                );
-                ensure!(
-                    !function_definitions.is_empty(),
-                    "failed to get function definition"
-                );
-
-                let mut function_definition = function_definitions.remove(0);
-                function_definition.context = step.context.clone();
-
-                Ok(Some(vec![vec![function_definition]]))
-            }
             ("identifier", "function_definition", Some(StepContext::GetReturnValue(..))) => {
                 let node = get_node(step, step_file_tree.root_node());
                 let parent = node.parent().unwrap();
@@ -179,7 +159,118 @@ impl Tracer for SolidityTracer {
 
                 Ok(Some(vec![vec![anchor_step]]))
             }
+            ("identifier", "parameter", None) => {
+                dbg!("got parameter, finding function references");
+
+                let node = get_node(step, step_file_tree.root_node());
+                let (fn_def, Some(parameter_index)) = find_fn_parameter_index(node) else {
+                    bail!("failed to get parameter index");
+                };
+
+                dbg!(parameter_index);
+
+                let fn_ident = fn_def.child_by_field_name("name").unwrap();
+                let mut fn_step = step_from_node(step.path.clone(), fn_ident);
+                fn_step.context = Some(StepContext::FindReference(parameter_index));
+
+                Ok(Some(vec![vec![fn_step]]))
+            }
+            ("identifier", "function_definition", Some(StepContext::FindReference(..))) => {
+                // TODO: if solc --lsp support `findReferences`, do this properly
+                dbg!("got function definition with find reference context, finding references");
+
+                let fn_call_steps = {
+                    let fn_calls = get_query_results(
+                        &String::from_utf8(std::fs::read(&step.path)?)?,
+                        step_file_tree.root_node(),
+                        &Query::new(
+                            tree_sitter_solidity::language(),
+                            "(call_expression function: (identifier) @ident)",
+                        )
+                        .unwrap(),
+                        0,
+                    );
+
+                    fn_calls
+                        .into_iter()
+                        .map(|n| step_from_node::<Self::StepContext>(step.path.clone(), n))
+                        .collect::<Vec<_>>()
+                };
+
+                let mut next_steps = vec![];
+                for mut fn_call_step in fn_call_steps {
+                    let definitions = get_step_definitions(lsp_client, &fn_call_step).await?;
+                    for definition in definitions {
+                        if &definition == step {
+                            fn_call_step.context = step.context.clone();
+                            next_steps.push(vec![fn_call_step.clone()]);
+                        }
+                    }
+                }
+
+                if !next_steps.is_empty() {
+                    Ok(Some(next_steps))
+                } else {
+                    Ok(None)
+                }
+            }
+            ("identifier", "call_expression", Some(StepContext::FindReference(index))) => {
+                dbg!("got call expression with find reference context, going to argument");
+                let node = get_node(step, step_file_tree.root_node());
+                let Some(argument) = get_fn_arg(node, *index) else {
+                    bail!("failed to get argument");
+                };
+
+                let step = step_from_node(step.path.clone(), argument);
+
+                Ok(Some(vec![vec![step]]))
+            }
+            ("identifier", "call_expression", None | Some(StepContext::GetReturnValue(..))) => {
+                dbg!("got call expression, going to function definition");
+
+                let mut function_definitions = get_step_definitions(lsp_client, step).await?;
+
+                ensure!(
+                    function_definitions.len() <= 1,
+                    "got multiple function definitions"
+                );
+                ensure!(
+                    !function_definitions.is_empty(),
+                    "failed to get function definition"
+                );
+
+                let mut function_definition = function_definitions.remove(0);
+                function_definition.context = step.context.clone();
+
+                Ok(Some(vec![vec![function_definition]]))
+            }
             _ => todo!(),
         }
     }
+}
+
+fn find_fn_parameter_index(node: Node) -> (Node, Option<usize>) {
+    let parent = node.parent().unwrap();
+    let fn_def = parent.parent().unwrap();
+    let mut cursor = fn_def.walk();
+
+    let index = fn_def
+        .named_children(&mut cursor)
+        .filter(|c| c.kind() == "parameter")
+        .position(|p| p == parent);
+
+    dbg!(fn_def.to_sexp(), index);
+    (fn_def, index)
+}
+
+fn get_fn_arg(node: Node, index: usize) -> Option<Node> {
+    let call_expression = node.parent().unwrap();
+    let mut cursor = call_expression.walk();
+
+    let parameter = call_expression
+        .named_children(&mut cursor)
+        .filter(|c| c.kind() == "call_argument")
+        .nth(index);
+
+    parameter
 }
