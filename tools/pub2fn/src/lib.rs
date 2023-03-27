@@ -112,7 +112,7 @@ async fn get_steps<P: LanguageProvider>(
         let mut next_targets = vec![];
         match method {
             LspMethod::Nop => next_targets.push(next_step),
-            LspMethod::ReverseDefinition { query, language } => {
+            LspMethod::ReverseDefinition { query: _, language: _ } => {
                 next_targets.extend(reverse_definition(root_dir, lsp_client, next_step));
             }
             LspMethod::Definition => {
@@ -186,9 +186,9 @@ async fn get_steps<P: LanguageProvider>(
 }
 
 fn reverse_definition<C>(
-    root_dir: &Path,
-    lsp_client: &LspClient,
-    next_step: Step<C>,
+    _root_dir: &Path,
+    _lsp_client: &LspClient,
+    _next_step: Step<C>,
 ) -> Vec<Step<C>> {
     todo!()
 }

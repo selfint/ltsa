@@ -1,7 +1,7 @@
 use anyhow::Result;
 use jsonrpc::{
     client::Client as JsonRpcClient,
-    types::{JsonRpcError, Response},
+    types::{JsonRpcError},
 };
 use lsp_types::{notification::Notification as LspNotification, request::Request as LspRequest};
 use serde_json::Value;

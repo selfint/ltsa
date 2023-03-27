@@ -1,4 +1,4 @@
-use std::{fmt::Debug, path::Path, sync::Arc, thread::panicking};
+use std::{fmt::Debug, path::Path};
 
 use anyhow::{Context, Result};
 use async_recursion::async_recursion;
