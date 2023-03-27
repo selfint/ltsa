@@ -1,4 +1,4 @@
-use crate::utils::{debug_node_step, get_node, get_tree};
+use crate::utils::{debug_node_step, get_node};
 use crate::{Stacktrace, Step, Tracer};
 
 use anyhow::Result;
@@ -8,12 +8,15 @@ use tree_sitter::{Language, Tree};
 
 pub struct SolidityTracer;
 
-#[derive(Debug, Clone)]
-pub enum SolidityStepContext {}
+#[derive(Debug, Clone, Default)]
+pub enum SolidityStepContext {
+    #[default]
+    None,
+}
 
 #[async_trait]
 impl Tracer for SolidityTracer {
-    type StepContext = Option<SolidityStepContext>;
+    type StepContext = SolidityStepContext;
 
     fn get_language(&self) -> Language {
         tree_sitter_solidity::language()
@@ -35,6 +38,8 @@ impl Tracer for SolidityTracer {
 
         debug_node_step(&node, &parent, step);
 
-        todo!()
+        match (node, parent, &step.context) {
+            _ => todo!(),
+        }
     }
 }
