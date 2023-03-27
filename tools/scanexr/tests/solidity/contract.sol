@@ -40,7 +40,17 @@ contract EtherStore {
     }
 
     function getSender() private view returns (address) {
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+        } else if (false) {
+            return bar(0x0000000000000000000000000000000000000000, msg.sender);
+        }
+
         return getSender2();
+    }
+
+    function bar(address a, address b) private pure returns (address) {
+        return b;
     }
 
     function foo(address a, address b) private pure returns (address) {

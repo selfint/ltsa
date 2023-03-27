@@ -49,6 +49,11 @@ impl Tracer for SolidityTracer {
         };
 
         match (node_kind, parent_kind, &step.context) {
+            ("number_literal", _, _) => {
+                dbg!("got literal");
+
+                Ok(None)
+            }
             ("identifier", "member_expression", None) => {
                 // if we are a property, return our parent object
                 {
