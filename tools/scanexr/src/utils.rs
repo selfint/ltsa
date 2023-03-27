@@ -3,8 +3,17 @@ use std::fs::DirEntry;
 use std::path::Path;
 use std::path::PathBuf;
 
+use anyhow::Context;
 use anyhow::Result;
+use lsp_client::client::Client;
+use lsp_types::request::GotoDeclarationParams;
+use lsp_types::request::GotoDefinition;
+use lsp_types::GotoDefinitionResponse;
 use lsp_types::Location;
+use lsp_types::PartialResultParams;
+use lsp_types::TextDocumentPositionParams;
+use lsp_types::Url;
+use lsp_types::WorkDoneProgressParams;
 use tree_sitter;
 use tree_sitter::Language;
 use tree_sitter::Node;
@@ -85,15 +94,15 @@ pub fn get_query_steps<C>(
     Ok(locations)
 }
 
-pub fn location_to_step<C>(location: Location) -> Step<C> {
+pub fn location_to_step<C>(location: Location) -> Result<Step<C>> {
     let path = location
         .uri
         .to_file_path()
-        .expect("failed to get uri file path");
+        .map_err(|_| anyhow::anyhow!("failed to convert location uri to file path"))?;
     let start = location.range.start;
     let end = location.range.end;
 
-    Step::new(path, start, end)
+    Ok(Step::new(path, start, end))
 }
 
 pub fn get_tree<C>(step: &Step<C>) -> Tree {
@@ -133,4 +142,36 @@ pub fn debug_node_step<C: Debug>(node: &Node, parent: &Node, step: &Step<C>) {
         " ".repeat(node.start_position().column)
             + &"^".repeat(node.end_position().column - node.start_position().column)
     );
+}
+
+pub async fn get_step_definitions<C>(lsp_client: &Client, step: &Step<C>) -> Result<Vec<Step<C>>> {
+    let Some(definitions) = lsp_client
+        .request::<GotoDefinition>(GotoDeclarationParams {
+            text_document_position_params: TextDocumentPositionParams {
+                text_document: lsp_types::TextDocumentIdentifier {
+                    uri: Url::from_file_path(&step.path)
+                        .map_err(|_| anyhow::Error::msg("failed to convert step path to url"))?,
+                },
+                position: step.start.into(),
+            },
+            work_done_progress_params: WorkDoneProgressParams {
+                work_done_token: None,
+            },
+            partial_result_params: PartialResultParams {
+                partial_result_token: None,
+            },
+        })
+        .await
+        .context("awaiting goto definition response")?
+        .context("getting goto definition result")?
+        else { return Ok(vec![]) };
+
+    Ok(match definitions {
+        GotoDefinitionResponse::Scalar(definition) => vec![location_to_step(definition)?],
+        GotoDefinitionResponse::Array(definitions) => definitions
+            .into_iter()
+            .map(location_to_step)
+            .collect::<Result<Vec<_>>>()?,
+        GotoDefinitionResponse::Link(_) => todo!("what is link?"),
+    })
 }

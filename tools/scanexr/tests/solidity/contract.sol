@@ -35,8 +35,12 @@ contract EtherStore {
         balances[msg.sender] += msg.value;
     }
 
-    function getSender() private view returns (address) {
+    function getSender2() private view returns (address) {
         return msg.sender;
+    }
+
+    function getSender() private view returns (address) {
+        return getSender2();
     }
 
     function foo(address a, address b) private pure returns (address) {

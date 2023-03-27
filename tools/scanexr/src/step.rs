@@ -65,3 +65,12 @@ impl From<Position> for StepPosition {
         }
     }
 }
+
+impl From<StepPosition> for Position {
+    fn from(step_position: StepPosition) -> Self {
+        Self {
+            line: step_position.line as u32,
+            character: step_position.character as u32,
+        }
+    }
+}

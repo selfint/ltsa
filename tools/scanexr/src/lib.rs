@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fmt::Debug, path::Path, sync::Arc, thread::panicking};
 
 use anyhow::{Context, Result};
 use async_recursion::async_recursion;
@@ -29,16 +29,20 @@ pub trait Tracer: Send + Sync {
         step_file_tree: Tree,
         step: &Step<Self::StepContext>,
         stop_at: &[Step<Self::StepContext>],
-    ) -> Result<Vec<Stacktrace<Self::StepContext>>>;
+    ) -> Result<Option<Vec<Stacktrace<Self::StepContext>>>>;
 }
 
-pub async fn get_all_stacktraces<T: Tracer>(
+pub async fn get_all_stacktraces<T>(
     tracer: &T,
     lsp_client: &Client,
     root_dir: &Path,
     pub_queries: &[(Query, u32)],
     hacky_query: &(Query, u32),
-) -> Result<Vec<Stacktrace<T::StepContext>>> {
+) -> Result<Vec<Stacktrace<T::StepContext>>>
+where
+    T: Tracer,
+    T::StepContext: Debug,
+{
     let mut pub_steps = vec![];
     for pub_query in pub_queries {
         let steps = get_query_steps(root_dir, tracer.get_language(), pub_query)
@@ -55,9 +59,12 @@ pub async fn get_all_stacktraces<T: Tracer>(
 
     let mut all_stacktraces = vec![];
     for hacky_step in &hacky_steps {
-        let stacktraces = _get_all_stacktraces(tracer, lsp_client, hacky_step, &pub_steps)
+        let Some(stacktraces) = _get_all_stacktraces(tracer, lsp_client, hacky_step, &pub_steps)
             .await
-            .context("completing stacktraces")?;
+            .context("completing stacktraces")?
+            else {
+                continue;
+            };
 
         all_stacktraces.extend(stacktraces);
     }
@@ -66,23 +73,40 @@ pub async fn get_all_stacktraces<T: Tracer>(
 }
 
 #[async_recursion]
-async fn _get_all_stacktraces<T: Tracer>(
+async fn _get_all_stacktraces<T>(
     tracer: &T,
     lsp_client: &Client,
     step: &Step<T::StepContext>,
     stop_at: &[Step<T::StepContext>],
-) -> Result<Vec<Stacktrace<T::StepContext>>> {
+) -> Result<Option<Vec<Stacktrace<T::StepContext>>>>
+where
+    T: Tracer,
+    T::StepContext: Debug,
+{
     // get stacktraces leading to step
     let step_file_tree = get_tree(step);
 
-    let stacktraces = tracer
+    let Some(stacktraces) = tracer
         .get_stacktraces(lsp_client, step_file_tree, step, stop_at)
-        .await?;
+        .await?
+        else {
+            return Ok(None);
+        };
 
     // complete stacktraces leading to step
     let mut completed_stacktraces = vec![];
     for stacktrace in stacktraces {
-        let next_stacktraces = _get_all_stacktraces(tracer, lsp_client, step, stop_at).await?;
+        let Some(next_step) = stacktrace.last() else { 
+            completed_stacktraces.push(stacktrace);
+            continue; 
+        };
+
+        let Some(next_stacktraces) = _get_all_stacktraces(
+            tracer, lsp_client, next_step, stop_at
+        ).await? else {
+            continue;
+        };
+
         for next_stacktrace in next_stacktraces {
             let mut completed_stacktrace = stacktrace.clone();
             completed_stacktrace.extend(next_stacktrace);
@@ -91,5 +115,5 @@ async fn _get_all_stacktraces<T: Tracer>(
         }
     }
 
-    Ok(completed_stacktraces)
+    Ok(Some(completed_stacktraces))
 }
