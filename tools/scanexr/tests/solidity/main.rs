@@ -197,6 +197,16 @@ async fn _test_solidity() {
     .await
     .unwrap();
 
+    fn format_context(ctx: Option<StepContext>) -> Option<StepContext> {
+        ctx.map(|StepContext::GetReturnValue(mut anchor)| {
+            StepContext::GetReturnValue({
+                anchor.path = anchor.path.file_name().unwrap().into();
+                anchor.context = format_context(anchor.context);
+                anchor
+            })
+        })
+    }
+
     let debug_stacktraces = stacktraces
         .into_iter()
         .map(|steps| {
@@ -218,17 +228,8 @@ async fn _test_solidity() {
                         if i == s.start.line {
                             let mut pointer = " ".repeat(s.start.character)
                                 + &"^".repeat(s.end.character - s.start.character);
-                            if let Some(context) = s.context.clone() {
-                                pointer += &format!(
-                                    " context: {:?}",
-                                    match context {
-                                        StepContext::GetReturnValue(mut anchor) => {
-                                            anchor.path = anchor.path.file_name().unwrap().into();
-                                            StepContext::GetReturnValue(anchor)
-                                        }
-                                    }
-                                );
-                            }
+                            pointer +=
+                                &format!(" context: {:?}", format_context(s.context.clone()));
                             snippet.push(pointer);
                         }
                     }
@@ -258,7 +259,7 @@ async fn _test_solidity() {
             require(bal > 0);
 
             (bool sent, ) = bar.call{value: bal}("");
-                            ^^^
+                            ^^^ context: None
             require(sent, "Failed to send Ether");
 
             balances[bar] = 0;
@@ -274,7 +275,7 @@ async fn _test_solidity() {
             address sender = getSender();
 
             address bar = foo(sender, sender);
-                    ^^^
+                    ^^^ context: None
 
             uint bal = balances[bar];
             require(bal > 0);
@@ -290,7 +291,7 @@ async fn _test_solidity() {
             address sender = getSender();
 
             address bar = foo(sender, sender);
-                          ^^^^^^^^^^^^^^^^^^^
+                          ^^^^^^^^^^^^^^^^^^^ context: None
 
             uint bal = balances[bar];
             require(bal > 0);
@@ -306,7 +307,7 @@ async fn _test_solidity() {
             address sender = getSender();
 
             address bar = foo(sender, sender);
-                          ^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None })
+                          ^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None }))
 
             uint bal = balances[bar];
             require(bal > 0);
@@ -322,7 +323,7 @@ async fn _test_solidity() {
         }
 
         function foo(address a, address b) private pure returns (address) {
-                 ^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None })
+                 ^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None }))
             return a;
         }
 
@@ -338,7 +339,7 @@ async fn _test_solidity() {
 
         function foo(address a, address b) private pure returns (address) {
             return a;
-                   ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None })
+                   ^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None }))
         }
 
         function withdraw() public {
@@ -354,7 +355,7 @@ async fn _test_solidity() {
         }
 
         function foo(address a, address b) private pure returns (address) {
-                             ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None })
+                             ^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None }))
             return a;
         }
 
@@ -370,7 +371,7 @@ async fn _test_solidity() {
             address sender = getSender();
 
             address bar = foo(sender, sender);
-                              ^^^^^^
+                              ^^^^^^ context: None
 
             uint bal = balances[bar];
             require(bal > 0);
@@ -386,7 +387,7 @@ async fn _test_solidity() {
 
         function withdraw() public {
             address sender = getSender();
-                    ^^^^^^
+                    ^^^^^^ context: None
 
             address bar = foo(sender, sender);
 
@@ -402,7 +403,7 @@ async fn _test_solidity() {
 
         function withdraw() public {
             address sender = getSender();
-                             ^^^^^^^^^^^
+                             ^^^^^^^^^^^ context: None
 
             address bar = foo(sender, sender);
 
@@ -418,7 +419,7 @@ async fn _test_solidity() {
 
         function withdraw() public {
             address sender = getSender();
-                             ^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })
+                             ^^^^^^^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None }))
 
             address bar = foo(sender, sender);
 
@@ -434,7 +435,7 @@ async fn _test_solidity() {
         }
 
         function getSender() private view returns (address) {
-                 ^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })
+                 ^^^^^^^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None }))
             if (false) {
                 return foo(0x0000000000000000000000000000000000000000, msg.sender);
             } else if (false) {
@@ -450,7 +451,7 @@ async fn _test_solidity() {
                 return foo(0x0000000000000000000000000000000000000000, msg.sender);
             } else if (false) {
                 return bar(0x0000000000000000000000000000000000000000, msg.sender);
-                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None }))
             }
 
             return getSender2();
@@ -466,7 +467,7 @@ async fn _test_solidity() {
                 return foo(0x0000000000000000000000000000000000000000, msg.sender);
             } else if (false) {
                 return bar(0x0000000000000000000000000000000000000000, msg.sender);
-                       ^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 45, character: 19 }, end: StepPosition { line: 45, character: 78 }, context: Some(GetReturnValue(Step { path: "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpxuVNpv/contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) })
+                       ^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 45, character: 19 }, end: StepPosition { line: 45, character: 78 }, context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) }))
             }
 
             return getSender2();
@@ -482,7 +483,7 @@ async fn _test_solidity() {
         }
 
         function bar(address a, address b) private pure returns (address) {
-                 ^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 45, character: 19 }, end: StepPosition { line: 45, character: 78 }, context: Some(GetReturnValue(Step { path: "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpxuVNpv/contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) })
+                 ^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 45, character: 19 }, end: StepPosition { line: 45, character: 78 }, context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) }))
             return b;
         }
 
@@ -498,7 +499,7 @@ async fn _test_solidity() {
 
         function bar(address a, address b) private pure returns (address) {
             return b;
-                   ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 45, character: 19 }, end: StepPosition { line: 45, character: 78 }, context: Some(GetReturnValue(Step { path: "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpxuVNpv/contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) })
+                   ^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 45, character: 19 }, end: StepPosition { line: 45, character: 78 }, context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) }))
         }
 
         function foo(address a, address b) private pure returns (address) {
@@ -514,7 +515,7 @@ async fn _test_solidity() {
         }
 
         function bar(address a, address b) private pure returns (address) {
-                                        ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 45, character: 19 }, end: StepPosition { line: 45, character: 78 }, context: Some(GetReturnValue(Step { path: "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpxuVNpv/contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) })
+                                        ^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 45, character: 19 }, end: StepPosition { line: 45, character: 78 }, context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) }))
             return b;
         }
 
@@ -530,7 +531,7 @@ async fn _test_solidity() {
                 return foo(0x0000000000000000000000000000000000000000, msg.sender);
             } else if (false) {
                 return bar(0x0000000000000000000000000000000000000000, msg.sender);
-                                                                       ^^^^^^^^^^
+                                                                       ^^^^^^^^^^ context: None
             }
 
             return getSender2();
@@ -548,7 +549,7 @@ async fn _test_solidity() {
             require(bal > 0);
 
             (bool sent, ) = bar.call{value: bal}("");
-                            ^^^
+                            ^^^ context: None
             require(sent, "Failed to send Ether");
 
             balances[bar] = 0;
@@ -564,7 +565,7 @@ async fn _test_solidity() {
             address sender = getSender();
 
             address bar = foo(sender, sender);
-                    ^^^
+                    ^^^ context: None
 
             uint bal = balances[bar];
             require(bal > 0);
@@ -580,7 +581,7 @@ async fn _test_solidity() {
             address sender = getSender();
 
             address bar = foo(sender, sender);
-                          ^^^^^^^^^^^^^^^^^^^
+                          ^^^^^^^^^^^^^^^^^^^ context: None
 
             uint bal = balances[bar];
             require(bal > 0);
@@ -596,7 +597,7 @@ async fn _test_solidity() {
             address sender = getSender();
 
             address bar = foo(sender, sender);
-                          ^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None })
+                          ^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None }))
 
             uint bal = balances[bar];
             require(bal > 0);
@@ -612,7 +613,7 @@ async fn _test_solidity() {
         }
 
         function foo(address a, address b) private pure returns (address) {
-                 ^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None })
+                 ^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None }))
             return a;
         }
 
@@ -628,7 +629,7 @@ async fn _test_solidity() {
 
         function foo(address a, address b) private pure returns (address) {
             return a;
-                   ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None })
+                   ^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None }))
         }
 
         function withdraw() public {
@@ -644,7 +645,7 @@ async fn _test_solidity() {
         }
 
         function foo(address a, address b) private pure returns (address) {
-                             ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None })
+                             ^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 62, character: 22 }, end: StepPosition { line: 62, character: 41 }, context: None }))
             return a;
         }
 
@@ -660,7 +661,7 @@ async fn _test_solidity() {
             address sender = getSender();
 
             address bar = foo(sender, sender);
-                              ^^^^^^
+                              ^^^^^^ context: None
 
             uint bal = balances[bar];
             require(bal > 0);
@@ -676,7 +677,7 @@ async fn _test_solidity() {
 
         function withdraw() public {
             address sender = getSender();
-                    ^^^^^^
+                    ^^^^^^ context: None
 
             address bar = foo(sender, sender);
 
@@ -692,7 +693,7 @@ async fn _test_solidity() {
 
         function withdraw() public {
             address sender = getSender();
-                             ^^^^^^^^^^^
+                             ^^^^^^^^^^^ context: None
 
             address bar = foo(sender, sender);
 
@@ -708,7 +709,7 @@ async fn _test_solidity() {
 
         function withdraw() public {
             address sender = getSender();
-                             ^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })
+                             ^^^^^^^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None }))
 
             address bar = foo(sender, sender);
 
@@ -724,7 +725,7 @@ async fn _test_solidity() {
         }
 
         function getSender() private view returns (address) {
-                 ^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })
+                 ^^^^^^^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None }))
             if (false) {
                 return foo(0x0000000000000000000000000000000000000000, msg.sender);
             } else if (false) {
@@ -740,7 +741,7 @@ async fn _test_solidity() {
             }
 
             return getSender2();
-                   ^^^^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })
+                   ^^^^^^^^^^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None }))
         }
 
         function bar(address a, address b) private pure returns (address) {
@@ -756,7 +757,7 @@ async fn _test_solidity() {
             }
 
             return getSender2();
-                   ^^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 48, character: 15 }, end: StepPosition { line: 48, character: 27 }, context: Some(GetReturnValue(Step { path: "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpxuVNpv/contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) })
+                   ^^^^^^^^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 48, character: 15 }, end: StepPosition { line: 48, character: 27 }, context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) }))
         }
 
         function bar(address a, address b) private pure returns (address) {
@@ -772,7 +773,7 @@ async fn _test_solidity() {
         }
 
         function getSender2() private view returns (address) {
-                 ^^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 48, character: 15 }, end: StepPosition { line: 48, character: 27 }, context: Some(GetReturnValue(Step { path: "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpxuVNpv/contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) })
+                 ^^^^^^^^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 48, character: 15 }, end: StepPosition { line: 48, character: 27 }, context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) }))
             return msg.sender;
         }
 
@@ -788,7 +789,7 @@ async fn _test_solidity() {
 
         function getSender2() private view returns (address) {
             return msg.sender;
-                   ^^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 48, character: 15 }, end: StepPosition { line: 48, character: 27 }, context: Some(GetReturnValue(Step { path: "/var/folders/9f/5pf_jcxd6bz2gbv9plxg_4bc0000gn/T/.tmpxuVNpv/contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) })
+                   ^^^^^^^^^^ context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 48, character: 15 }, end: StepPosition { line: 48, character: 27 }, context: Some(GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 60, character: 25 }, end: StepPosition { line: 60, character: 36 }, context: None })) }))
         }
 
         function getSender() private view returns (address) {
