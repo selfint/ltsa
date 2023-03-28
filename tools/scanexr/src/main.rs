@@ -40,12 +40,20 @@ async fn main() {
         Query::new(
             tree_sitter_solidity::language(),
             r#"
-            (member_expression
+            [(member_expression
                 object: (identifier) @obj
                 (#match? @obj "msg")
                 property: (identifier) @prop
                 (#match? @prop "sender")
             ) @pub
+            (contract_declaration
+                body: (contract_body
+                    (state_variable_declaration
+                        name: (identifier) @pub
+                    )
+                )
+            )
+            ]
             "#,
         )
         .unwrap(),
