@@ -26,7 +26,7 @@ jobs:
       run: cargo build --verbose
     - run: pwd
     - name: Build viz
-      run: cargo run --release --bin scanexr {{ inputs.contract }} | cargo run --release --bin viz - > viz.html
+      run: cargo run --bin scanexr ${{ inputs.contract }} | cargo run --bin viz - > viz.html
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.2
       with:
