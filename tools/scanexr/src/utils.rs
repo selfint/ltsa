@@ -143,7 +143,7 @@ path: {:?}
 node kind: {:?}
 parent: {:?}
 context: {:?}
-line:{}
+line: {}
 content:
 
 {}
@@ -157,7 +157,11 @@ content:
         step.start.line,
         get_step_line(step),
         " ".repeat(node.start_position().column)
-            + &"^".repeat(node.end_position().column - node.start_position().column)
+            + &(if node.end_position().row == node.start_position().row {
+                "^".repeat(node.end_position().column - node.start_position().column)
+            } else {
+                "^ continues in next lines ->".to_string()
+            })
     )
 }
 
