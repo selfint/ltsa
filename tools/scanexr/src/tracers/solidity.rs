@@ -3,8 +3,8 @@
 use std::path::Path;
 
 use crate::utils::{
-    debug_node_step, get_node, get_query_results, get_query_steps, get_step_definitions, get_tree,
-    step_from_node,
+    debug_node_step, get_node, get_query_results, get_step_definitions, get_tree, step_from_node,
+    visit_dirs,
 };
 use crate::{Stacktrace, Step, Tracer};
 
@@ -26,13 +26,42 @@ async fn find_references(
         .unwrap(),
         0,
     );
-    let fn_call_steps = get_query_steps(root_dir, tree_sitter_solidity::language(), &query)?;
+
+    let fn_call_steps = {
+        let language = tree_sitter_solidity::language();
+
+        let mut locations = vec![];
+        visit_dirs(root_dir, &mut |dir| {
+            let content =
+                String::from_utf8(std::fs::read(dir.path()).expect("failed to read file"))
+                    .expect("got non-utf8 file");
+
+            let mut parser = tree_sitter::Parser::new();
+            parser
+                .set_language(language)
+                .expect("failed to set language on parser");
+            let tree = parser
+                .parse(&content, None)
+                .expect("failed to parse content");
+
+            let results = get_query_results(&content, tree.root_node(), &query.0, query.1);
+
+            for result in results {
+                let start = result.start_position();
+                let end = result.end_position();
+                locations.push(Step::new(dir.path(), start, end));
+            }
+        })?;
+
+        locations
+    };
 
     let mut references = vec![];
     for fn_call_step in fn_call_steps {
-        let Ok(definitions) = get_step_definitions(lsp_client, &fn_call_step).await else {
-                        continue;
-                    };
+        let Ok(definitions) = get_step_definitions(lsp_client, &fn_call_step).await
+            else {
+                continue;
+            };
 
         for definition in definitions {
             if &definition == step {

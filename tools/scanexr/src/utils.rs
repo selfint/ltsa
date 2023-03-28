@@ -195,3 +195,18 @@ pub async fn get_step_definitions<C: Default>(
         GotoDefinitionResponse::Link(_) => todo!("what is link?"),
     })
 }
+
+pub fn visit_dirs(dir: &Path, cb: &mut impl FnMut(&DirEntry)) -> std::io::Result<()> {
+    if dir.is_dir() {
+        for entry in std::fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                visit_dirs(&path, cb)?;
+            } else {
+                cb(&entry);
+            }
+        }
+    }
+    Ok(())
+}
