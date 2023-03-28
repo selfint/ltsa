@@ -1,7 +1,9 @@
 // use tokio::sync::Mutex;
 
+use std::path::Path;
+
 use crate::utils::{
-    debug_node_step, get_node, get_query_results, get_step_definitions, get_tree, push_fluent,
+    debug_node_step, get_node, get_query_results, get_query_steps, get_step_definitions, get_tree,
     step_from_node,
 };
 use crate::{Stacktrace, Step, Tracer};
@@ -10,6 +12,55 @@ use anyhow::{bail, ensure, Ok, Result};
 use async_trait::async_trait;
 use lsp_client::client::Client;
 use tree_sitter::{Language, Node, Query, Tree};
+
+fn find_fn_parameter_index(node: Node) -> (Node, Option<usize>) {
+    let parent = node.parent().unwrap();
+    let fn_def = parent.parent().unwrap();
+    let mut cursor = fn_def.walk();
+
+    let index = fn_def
+        .named_children(&mut cursor)
+        .filter(|c| c.kind() == "parameter")
+        .position(|p| p == parent);
+
+    (fn_def, index)
+}
+
+fn find_tuple_declaration_index(node: Node) -> (Node, Option<usize>) {
+    let variable_declaration = node.parent().unwrap();
+    let variable_declaration_tuple = variable_declaration.parent().unwrap();
+    let mut cursor = variable_declaration_tuple.walk();
+
+    let index = variable_declaration_tuple
+        .named_children(&mut cursor)
+        .filter(|c| c.kind() == "variable_declaration")
+        .position(|p| p == variable_declaration);
+
+    (variable_declaration_tuple, index)
+}
+
+fn get_fn_arg(node: Node, index: usize) -> Option<Node> {
+    let call_expression = node.parent().unwrap();
+    let mut cursor = call_expression.walk();
+
+    let parameter = call_expression
+        .named_children(&mut cursor)
+        .filter(|c| c.kind() == "call_argument")
+        .nth(index);
+
+    parameter
+}
+
+fn get_tuple_index(node: Node, index: usize) -> Option<Node> {
+    let mut cursor = node.walk();
+
+    let value = node
+        .named_children(&mut cursor)
+        .filter(|c| c.kind() == "identifier")
+        .nth(index);
+
+    value
+}
 
 pub struct SolidityTracer;
 
@@ -34,6 +85,7 @@ impl Tracer for SolidityTracer {
     async fn get_stacktraces(
         &self,
         lsp_client: &Client,
+        root_dir: &Path,
         step_file_tree: Tree,
         step: &Step<Self::StepContext>,
         stop_at: &[Step<Self::StepContext>],
@@ -209,23 +261,18 @@ impl Tracer for SolidityTracer {
                 // TODO: if solc --lsp support `findReferences`, do this properly
                 dbg!("got function definition with find reference context, finding references");
 
-                let fn_call_steps = {
-                    let fn_calls = get_query_results(
-                        &String::from_utf8(std::fs::read(&step.path)?)?,
-                        step_file_tree.root_node(),
-                        &Query::new(
-                            tree_sitter_solidity::language(),
-                            "(call_expression function: (identifier) @ident)",
-                        )
-                        .unwrap(),
-                        0,
-                    );
+                let query = (
+                    Query::new(
+                        tree_sitter_solidity::language(),
+                        "(call_expression function: (identifier) @ident)",
+                    )
+                    .unwrap(),
+                    0,
+                );
+                let fn_call_steps =
+                    get_query_steps(root_dir, tree_sitter_solidity::language(), &query)?;
 
-                    fn_calls
-                        .into_iter()
-                        .map(|n| step_from_node::<Self::StepContext>(step.path.clone(), n))
-                        .collect::<Vec<_>>()
-                };
+                dbg!(&fn_call_steps);
 
                 let mut next_steps = vec![];
                 for mut fn_call_step in fn_call_steps {
@@ -306,53 +353,4 @@ impl Tracer for SolidityTracer {
             _ => todo!(),
         }
     }
-}
-
-fn find_fn_parameter_index(node: Node) -> (Node, Option<usize>) {
-    let parent = node.parent().unwrap();
-    let fn_def = parent.parent().unwrap();
-    let mut cursor = fn_def.walk();
-
-    let index = fn_def
-        .named_children(&mut cursor)
-        .filter(|c| c.kind() == "parameter")
-        .position(|p| p == parent);
-
-    (fn_def, index)
-}
-
-fn find_tuple_declaration_index(node: Node) -> (Node, Option<usize>) {
-    let variable_declaration = node.parent().unwrap();
-    let variable_declaration_tuple = variable_declaration.parent().unwrap();
-    let mut cursor = variable_declaration_tuple.walk();
-
-    let index = variable_declaration_tuple
-        .named_children(&mut cursor)
-        .filter(|c| c.kind() == "variable_declaration")
-        .position(|p| p == variable_declaration);
-
-    (variable_declaration_tuple, index)
-}
-
-fn get_fn_arg(node: Node, index: usize) -> Option<Node> {
-    let call_expression = node.parent().unwrap();
-    let mut cursor = call_expression.walk();
-
-    let parameter = call_expression
-        .named_children(&mut cursor)
-        .filter(|c| c.kind() == "call_argument")
-        .nth(index);
-
-    parameter
-}
-
-fn get_tuple_index(node: Node, index: usize) -> Option<Node> {
-    let mut cursor = node.walk();
-
-    let value = node
-        .named_children(&mut cursor)
-        .filter(|c| c.kind() == "identifier")
-        .nth(index);
-
-    value
 }

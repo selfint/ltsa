@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {other} from "./other_file.sol";
+import {other, hacky} from "./other_file.sol";
 
 /*
 EtherStore is a contract where you can deposit and withdraw ETH.
@@ -61,13 +61,6 @@ contract EtherStore {
         return a;
     }
 
-    function hacky(address target, uint amount) public {
-        (bool sent, ) = target.call{value: amount}("");
-        require(sent, "Failed to send Ether");
-
-        balances[target] = 0;
-    }
-
     function withdraw() public {
         address sender = getSender();
 
@@ -77,6 +70,8 @@ contract EtherStore {
         require(bal > 0);
 
         hacky(bar, bal);
+
+        balances[bar] = 0;
     }
 
     // Helper function to check the balance of this contract

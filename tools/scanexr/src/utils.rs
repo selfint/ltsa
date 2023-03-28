@@ -133,7 +133,11 @@ pub fn step_from_node<C: Default>(path: PathBuf, node: Node) -> Step<C> {
 }
 
 pub fn debug_node_step<C: Debug + Default>(node: &Node, parent: &Node, step: &Step<C>) {
-    eprintln!(
+    eprintln!("{}", format_node_step(node, parent, step));
+}
+
+pub fn format_node_step<C: Debug + Default>(node: &Node, parent: &Node, step: &Step<C>) -> String {
+    format!(
         "\ngot step with:\nnode kind: {:?}\nparent: {:?}\ncontext: {:?}\nline:\n\n{}\n{}\n\n",
         node.kind(),
         parent.kind(),
@@ -141,7 +145,7 @@ pub fn debug_node_step<C: Debug + Default>(node: &Node, parent: &Node, step: &St
         get_step_line(step),
         " ".repeat(node.start_position().column)
             + &"^".repeat(node.end_position().column - node.start_position().column)
-    );
+    )
 }
 
 pub async fn get_step_definitions<C: Default>(
@@ -177,9 +181,4 @@ pub async fn get_step_definitions<C: Default>(
             .collect::<Result<Vec<_>>>()?,
         GotoDefinitionResponse::Link(_) => todo!("what is link?"),
     })
-}
-
-pub fn push_fluent<T>(mut source: Vec<T>, item: T) -> Vec<T> {
-    source.push(item);
-    source
 }

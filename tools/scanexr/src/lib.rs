@@ -26,6 +26,7 @@ pub trait Tracer: Send + Sync {
     async fn get_stacktraces(
         &self,
         lsp_client: &Client,
+        root_dir: &Path,
         step_file_tree: Tree,
         step: &Step<Self::StepContext>,
         stop_at: &[Step<Self::StepContext>],
@@ -59,7 +60,7 @@ where
 
     let mut all_stacktraces = vec![];
     for hacky_step in &hacky_steps {
-        let Some(stacktraces) = _get_all_stacktraces(tracer, lsp_client, hacky_step, &pub_steps)
+        let Some(stacktraces) = _get_all_stacktraces(tracer, lsp_client, root_dir, hacky_step, &pub_steps)
             .await
             .context("completing stacktraces")?
             else {
@@ -76,6 +77,7 @@ where
 async fn _get_all_stacktraces<T>(
     tracer: &T,
     lsp_client: &Client,
+    root_dir: &Path,
     step: &Step<T::StepContext>,
     stop_at: &[Step<T::StepContext>],
 ) -> Result<Option<Vec<Stacktrace<T::StepContext>>>>
@@ -87,7 +89,7 @@ where
 
     // get stacktraces leading to step
     let Some(stacktraces) = tracer
-        .get_stacktraces(lsp_client, step_file_tree, step, stop_at)
+        .get_stacktraces(lsp_client, root_dir, step_file_tree, step, stop_at)
         .await?
         else {
             return Ok(None);
@@ -102,7 +104,7 @@ where
         };
 
         let Some(next_stacktraces) = _get_all_stacktraces(
-            tracer, lsp_client, next_step, stop_at
+            tracer, lsp_client, root_dir, next_step, stop_at
         ).await? else {
             continue;
         };
