@@ -1,0 +1,820 @@
+---
+source: tools/scanexr/tests/solidity/main.rs
+expression: debug_stacktraces
+---
+Stacktrace: 0
+Step: 0
+# other_file.sol #
+
+function other(address a, uint b) pure returns (uint, address) {
+    return (b, a);
+}
+
+function hacky(address target, uint amount) {
+    (bool sent, ) = target.call{value: amount}("");
+                 // ^^^^^^ context: None
+    require(sent, "Failed to send Ether");
+}
+
+Step: 1
+# other_file.sol #
+
+
+function other(address a, uint b) pure returns (uint, address) {
+    return (b, a);
+}
+
+function hacky(address target, uint amount) {
+                    // ^^^^^^ context: None
+    (bool sent, ) = target.call{value: amount}("");
+    require(sent, "Failed to send Ether");
+}
+
+Step: 2
+# other_file.sol #
+
+
+function other(address a, uint b) pure returns (uint, address) {
+    return (b, a);
+}
+
+function hacky(address target, uint amount) {
+      // ^^^^^ context: FindReference(0)
+    (bool sent, ) = target.call{value: amount}("");
+    require(sent, "Failed to send Ether");
+}
+
+Step: 3
+# contract.sol #
+
+        address bar = foo(sender, sender);
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+     // ^^^^^ context: FindReference(0)
+
+        balances[bar] = 0;
+    }
+
+    // Helper function to check the balance of this contract
+
+Step: 4
+# contract.sol #
+
+        address bar = foo(sender, sender);
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+           // ^^^ context: None
+
+        balances[bar] = 0;
+    }
+
+    // Helper function to check the balance of this contract
+
+Step: 5
+# contract.sol #
+
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+             // ^^^ context: None
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+
+Step: 6
+# contract.sol #
+
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+                   // ^^^^^^^^^^^^^^^^^^^ context: None
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+
+Step: 7
+# contract.sol #
+
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+                   // ^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 66, character: 22 }, end: StepPosition { line: 66, character: 41 }, context: None })
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+
+Step: 8
+# contract.sol #
+
+        (uint c, address d) = other(a2, 1);
+
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+          // ^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 66, character: 22 }, end: StepPosition { line: 66, character: 41 }, context: None })
+        return a;
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+Step: 9
+# contract.sol #
+
+
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+            // ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 66, character: 22 }, end: StepPosition { line: 66, character: 41 }, context: None })
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+
+Step: 10
+# contract.sol #
+
+        (uint c, address d) = other(a2, 1);
+
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+                      // ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 66, character: 22 }, end: StepPosition { line: 66, character: 41 }, context: None })
+        return a;
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+Step: 11
+# contract.sol #
+
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+                       // ^^^^^^ context: None
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+
+Step: 12
+# contract.sol #
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+             // ^^^^^^ context: None
+
+        address bar = foo(sender, sender);
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+Step: 13
+# contract.sol #
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+                      // ^^^^^^^^^^^ context: None
+
+        address bar = foo(sender, sender);
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+Step: 14
+# contract.sol #
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+                      // ^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None })
+
+        address bar = foo(sender, sender);
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+Step: 15
+# contract.sol #
+
+
+    function getSender2() private view returns (address) {
+        return msg.sender;
+    }
+
+    function getSender() private view returns (address) {
+          // ^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None })
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+        } else if (false) {
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+        }
+
+Step: 16
+# contract.sol #
+
+
+    function getSender() private view returns (address) {
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+        } else if (false) {
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+                // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None })
+        }
+
+        return getSender2();
+    }
+
+
+Step: 17
+# contract.sol #
+
+
+    function getSender() private view returns (address) {
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+        } else if (false) {
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+                // ^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 47, character: 19 }, end: StepPosition { line: 47, character: 79 }, context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None }) })
+        }
+
+        return getSender2();
+    }
+
+
+Step: 18
+# contract.sol #
+
+        }
+
+        return getSender2();
+    }
+
+    function ret2(address a, address a2) private pure returns (address) {
+          // ^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 47, character: 19 }, end: StepPosition { line: 47, character: 79 }, context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None }) })
+        (uint c, address d) = other(a2, 1);
+
+        return d;
+    }
+
+
+Step: 19
+# contract.sol #
+
+    }
+
+    function ret2(address a, address a2) private pure returns (address) {
+        (uint c, address d) = other(a2, 1);
+
+        return d;
+            // ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 47, character: 19 }, end: StepPosition { line: 47, character: 79 }, context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None }) })
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+    }
+
+Step: 20
+# contract.sol #
+
+
+        return getSender2();
+    }
+
+    function ret2(address a, address a2) private pure returns (address) {
+        (uint c, address d) = other(a2, 1);
+                      // ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 47, character: 19 }, end: StepPosition { line: 47, character: 79 }, context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None }) })
+
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+
+Step: 21
+# contract.sol #
+
+
+        return getSender2();
+    }
+
+    function ret2(address a, address a2) private pure returns (address) {
+        (uint c, address d) = other(a2, 1);
+                           // ^^^^^^^^^^^^ context: GetTupleValue(1)
+
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+
+Step: 22
+# contract.sol #
+
+
+        return getSender2();
+    }
+
+    function ret2(address a, address a2) private pure returns (address) {
+        (uint c, address d) = other(a2, 1);
+                           // ^^^^^ context: GetReturnTupleValue(Step { path: "contract.sol", start: StepPosition { line: 54, character: 30 }, end: StepPosition { line: 54, character: 42 }, context: GetTupleValue(1) }, 1)
+
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+
+Step: 23
+# other_file.sol #
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+function other(address a, uint b) pure returns (uint, address) {
+      // ^^^^^ context: GetReturnTupleValue(Step { path: "contract.sol", start: StepPosition { line: 54, character: 30 }, end: StepPosition { line: 54, character: 42 }, context: GetTupleValue(1) }, 1)
+    return (b, a);
+}
+
+function hacky(address target, uint amount) {
+    (bool sent, ) = target.call{value: amount}("");
+
+Step: 24
+# other_file.sol #
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+function other(address a, uint b) pure returns (uint, address) {
+    return (b, a);
+        // ^^^^^^ context: GetReturnTupleValue(Step { path: "contract.sol", start: StepPosition { line: 54, character: 30 }, end: StepPosition { line: 54, character: 42 }, context: GetTupleValue(1) }, 1)
+}
+
+function hacky(address target, uint amount) {
+    (bool sent, ) = target.call{value: amount}("");
+    require(sent, "Failed to send Ether");
+
+Step: 25
+# other_file.sol #
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+function other(address a, uint b) pure returns (uint, address) {
+    return (b, a);
+            // ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 54, character: 30 }, end: StepPosition { line: 54, character: 42 }, context: GetTupleValue(1) })
+}
+
+function hacky(address target, uint amount) {
+    (bool sent, ) = target.call{value: amount}("");
+    require(sent, "Failed to send Ether");
+
+Step: 26
+# other_file.sol #
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+function other(address a, uint b) pure returns (uint, address) {
+                    // ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 54, character: 30 }, end: StepPosition { line: 54, character: 42 }, context: GetTupleValue(1) })
+    return (b, a);
+}
+
+function hacky(address target, uint amount) {
+    (bool sent, ) = target.call{value: amount}("");
+
+Step: 27
+# contract.sol #
+
+
+        return getSender2();
+    }
+
+    function ret2(address a, address a2) private pure returns (address) {
+        (uint c, address d) = other(a2, 1);
+                                 // ^^ context: None
+
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+
+Step: 28
+# contract.sol #
+
+        }
+
+        return getSender2();
+    }
+
+    function ret2(address a, address a2) private pure returns (address) {
+                                  // ^^ context: None
+        (uint c, address d) = other(a2, 1);
+
+        return d;
+    }
+
+
+Step: 29
+# contract.sol #
+
+        }
+
+        return getSender2();
+    }
+
+    function ret2(address a, address a2) private pure returns (address) {
+          // ^^^^ context: FindReference(1)
+        (uint c, address d) = other(a2, 1);
+
+        return d;
+    }
+
+
+Step: 30
+# contract.sol #
+
+
+    function getSender() private view returns (address) {
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+        } else if (false) {
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+                // ^^^^ context: FindReference(1)
+        }
+
+        return getSender2();
+    }
+
+
+Step: 31
+# contract.sol #
+
+
+    function getSender() private view returns (address) {
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+        } else if (false) {
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+                                                                 // ^^^^^^^^^^ context: None
+        }
+
+        return getSender2();
+    }
+
+
+
+Stacktrace: 1
+Step: 0
+# other_file.sol #
+
+function other(address a, uint b) pure returns (uint, address) {
+    return (b, a);
+}
+
+function hacky(address target, uint amount) {
+    (bool sent, ) = target.call{value: amount}("");
+                 // ^^^^^^ context: None
+    require(sent, "Failed to send Ether");
+}
+
+Step: 1
+# other_file.sol #
+
+
+function other(address a, uint b) pure returns (uint, address) {
+    return (b, a);
+}
+
+function hacky(address target, uint amount) {
+                    // ^^^^^^ context: None
+    (bool sent, ) = target.call{value: amount}("");
+    require(sent, "Failed to send Ether");
+}
+
+Step: 2
+# other_file.sol #
+
+
+function other(address a, uint b) pure returns (uint, address) {
+    return (b, a);
+}
+
+function hacky(address target, uint amount) {
+      // ^^^^^ context: FindReference(0)
+    (bool sent, ) = target.call{value: amount}("");
+    require(sent, "Failed to send Ether");
+}
+
+Step: 3
+# contract.sol #
+
+        address bar = foo(sender, sender);
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+     // ^^^^^ context: FindReference(0)
+
+        balances[bar] = 0;
+    }
+
+    // Helper function to check the balance of this contract
+
+Step: 4
+# contract.sol #
+
+        address bar = foo(sender, sender);
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+           // ^^^ context: None
+
+        balances[bar] = 0;
+    }
+
+    // Helper function to check the balance of this contract
+
+Step: 5
+# contract.sol #
+
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+             // ^^^ context: None
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+
+Step: 6
+# contract.sol #
+
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+                   // ^^^^^^^^^^^^^^^^^^^ context: None
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+
+Step: 7
+# contract.sol #
+
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+                   // ^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 66, character: 22 }, end: StepPosition { line: 66, character: 41 }, context: None })
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+
+Step: 8
+# contract.sol #
+
+        (uint c, address d) = other(a2, 1);
+
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+          // ^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 66, character: 22 }, end: StepPosition { line: 66, character: 41 }, context: None })
+        return a;
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+Step: 9
+# contract.sol #
+
+
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+            // ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 66, character: 22 }, end: StepPosition { line: 66, character: 41 }, context: None })
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+
+Step: 10
+# contract.sol #
+
+        (uint c, address d) = other(a2, 1);
+
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+                      // ^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 66, character: 22 }, end: StepPosition { line: 66, character: 41 }, context: None })
+        return a;
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+Step: 11
+# contract.sol #
+
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+                       // ^^^^^^ context: None
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+
+Step: 12
+# contract.sol #
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+             // ^^^^^^ context: None
+
+        address bar = foo(sender, sender);
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+Step: 13
+# contract.sol #
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+                      // ^^^^^^^^^^^ context: None
+
+        address bar = foo(sender, sender);
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+Step: 14
+# contract.sol #
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+                      // ^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None })
+
+        address bar = foo(sender, sender);
+
+        uint bal = balances[bar];
+        require(bal > 0);
+
+Step: 15
+# contract.sol #
+
+
+    function getSender2() private view returns (address) {
+        return msg.sender;
+    }
+
+    function getSender() private view returns (address) {
+          // ^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None })
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+        } else if (false) {
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+        }
+
+Step: 16
+# contract.sol #
+
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+        } else if (false) {
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+        }
+
+        return getSender2();
+            // ^^^^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None })
+    }
+
+    function ret2(address a, address a2) private pure returns (address) {
+        (uint c, address d) = other(a2, 1);
+
+
+Step: 17
+# contract.sol #
+
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+        } else if (false) {
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+        }
+
+        return getSender2();
+            // ^^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 50, character: 15 }, end: StepPosition { line: 50, character: 27 }, context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None }) })
+    }
+
+    function ret2(address a, address a2) private pure returns (address) {
+        (uint c, address d) = other(a2, 1);
+
+
+Step: 18
+# contract.sol #
+
+
+    function deposit() public payable {
+        balances[msg.sender] += msg.value;
+    }
+
+    function getSender2() private view returns (address) {
+          // ^^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 50, character: 15 }, end: StepPosition { line: 50, character: 27 }, context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None }) })
+        return msg.sender;
+    }
+
+    function getSender() private view returns (address) {
+        if (false) {
+
+Step: 19
+# contract.sol #
+
+    function deposit() public payable {
+        balances[msg.sender] += msg.value;
+    }
+
+    function getSender2() private view returns (address) {
+        return msg.sender;
+            // ^^^^^^^^^^ context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 50, character: 15 }, end: StepPosition { line: 50, character: 27 }, context: GetReturnValue(Step { path: "contract.sol", start: StepPosition { line: 64, character: 25 }, end: StepPosition { line: 64, character: 36 }, context: None }) })
+    }
+
+    function getSender() private view returns (address) {
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+
+
