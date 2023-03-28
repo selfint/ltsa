@@ -5,6 +5,7 @@ on:
     inputs:
       contract:
         type: choice
+        description: "Which contract to run on"
         options:
           - "tools/scanexr/tests/solidity/contract"
           - "tools/scanexr/tests/solidity/contract2"
@@ -24,9 +25,7 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Build viz
-      run: |
-        cargo run --release --bin scanexr {{ inputs.contract }} 
-        | cargo run --release --bin viz - > viz.html
+      run: cargo run --release --bin scanexr {{ inputs.contract }} | cargo run --release --bin viz - > viz.html
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.2
       with:
