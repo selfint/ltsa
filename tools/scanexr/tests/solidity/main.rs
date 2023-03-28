@@ -91,53 +91,7 @@ fn test_queries() {
         .collect::<Vec<_>>()
         .join(",\n");
 
-    insta::assert_snapshot!(node_text,
-        @r###"
-
-    got step with:
-    node kind: "member_expression"
-    parent: "array_access"
-    context: ()
-    line:
-
-            balances[msg.sender] += msg.value;
-                     ^^^^^^^^^^
-
-    ,
-
-    got step with:
-    node kind: "member_expression"
-    parent: "return_statement"
-    context: ()
-    line:
-
-            return msg.sender;
-                   ^^^^^^^^^^
-
-    ,
-
-    got step with:
-    node kind: "member_expression"
-    parent: "call_argument"
-    context: ()
-    line:
-
-                return foo(0x0000000000000000000000000000000000000000, msg.sender);
-                                                                       ^^^^^^^^^^
-
-    ,
-
-    got step with:
-    node kind: "member_expression"
-    parent: "call_argument"
-    context: ()
-    line:
-
-                return ret2(0x0000000000000000000000000000000000000000, msg.sender);
-                                                                        ^^^^^^^^^^
-
-    "###
-    );
+    insta::assert_snapshot!(node_text);
 
     let results = scanexr::utils::get_query_steps::<()>(
         temp_dir.path(),
@@ -156,20 +110,7 @@ fn test_queries() {
         .collect::<Vec<_>>()
         .join(",\n");
 
-    insta::assert_snapshot!(node_text,
-        @r###"
-
-    got step with:
-    node kind: "identifier"
-    parent: "member_expression"
-    context: ()
-    line:
-
-        (bool sent, ) = target.call{value: amount}("");
-                               ^^^^
-
-    "###
-    );
+    insta::assert_snapshot!(node_text);
 }
 
 #[tokio::test]

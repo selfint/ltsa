@@ -1,0 +1,48 @@
+---
+source: tools/scanexr/tests/solidity/main.rs
+expression: node_text
+---
+
+got step with:
+node kind: "member_expression"
+parent: "array_access"
+context: ()
+line:
+
+        balances[msg.sender] += msg.value;
+                 ^^^^^^^^^^
+
+,
+
+got step with:
+node kind: "member_expression"
+parent: "return_statement"
+context: ()
+line:
+
+        return msg.sender;
+               ^^^^^^^^^^
+
+,
+
+got step with:
+node kind: "member_expression"
+parent: "call_argument"
+context: ()
+line:
+
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+                                                                   ^^^^^^^^^^
+
+,
+
+got step with:
+node kind: "member_expression"
+parent: "call_argument"
+context: ()
+line:
+
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+                                                                    ^^^^^^^^^^
+
+
