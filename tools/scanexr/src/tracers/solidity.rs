@@ -17,15 +17,15 @@ pub struct SolidityTracer;
 pub enum StepContext {
     #[default]
     None,
-    GetReturnValue(Box<Step<Vec<StepContext>>>),
+    GetReturnValue(Box<Step<StepContext>>),
     FindReference(usize),
     GetTupleValue(usize),
-    GetReturnTupleValue(Box<Step<Vec<StepContext>>>, usize),
+    GetReturnTupleValue(Box<Step<StepContext>>, usize),
 }
 
 #[async_trait]
 impl Tracer for SolidityTracer {
-    type StepContext = Vec<StepContext>;
+    type StepContext = StepContext;
 
     fn get_language(&self) -> Language {
         tree_sitter_solidity::language()
@@ -52,12 +52,7 @@ impl Tracer for SolidityTracer {
             (kind, parent_kind)
         };
 
-        let default_context = StepContext::default();
-        let current_context = step.context.last().unwrap_or(&default_context);
-
-        dbg!(current_context);
-
-        match (node_kind, parent_kind, current_context) {
+        match (node_kind, parent_kind, &step.context) {
             ("number_literal", _, _) => {
                 dbg!("got literal");
 
@@ -111,10 +106,7 @@ impl Tracer for SolidityTracer {
                             declaration_statement.child_by_field_name("value").unwrap();
 
                         let mut next_step = step_from_node(step.path.clone(), declaration_value);
-                        next_step.context = push_fluent(
-                            step.context.clone(),
-                            StepContext::GetTupleValue(tuple_index),
-                        );
+                        next_step.context = StepContext::GetTupleValue(tuple_index);
 
                         Ok(Some(vec![vec![next_step]]))
                     }
@@ -131,10 +123,8 @@ impl Tracer for SolidityTracer {
                 let node = get_node(step, step_file_tree.root_node());
                 let function = node.child_by_field_name("function").unwrap();
                 let mut function_step = step_from_node(step.path.clone(), function);
-                function_step.context = push_fluent(
-                    step.context.clone(),
-                    StepContext::GetReturnTupleValue(Box::new(step.clone()), *index),
-                );
+                function_step.context =
+                    StepContext::GetReturnTupleValue(Box::new(step.clone()), *index);
 
                 Ok(Some(vec![vec![function_step]]))
             }
@@ -144,10 +134,7 @@ impl Tracer for SolidityTracer {
                 let node = get_node(step, step_file_tree.root_node());
                 let function = node.child_by_field_name("function").unwrap();
                 let mut function_step = step_from_node(step.path.clone(), function);
-                function_step.context = push_fluent(
-                    step.context.clone(),
-                    StepContext::GetReturnValue(Box::new(step.clone())),
-                );
+                function_step.context = StepContext::GetReturnValue(Box::new(step.clone()));
 
                 Ok(Some(vec![vec![function_step]]))
             }
@@ -214,10 +201,7 @@ impl Tracer for SolidityTracer {
 
                 let fn_ident = fn_def.child_by_field_name("name").unwrap();
                 let mut fn_step = step_from_node(step.path.clone(), fn_ident);
-                fn_step.context = push_fluent(
-                    step.context.clone(),
-                    StepContext::FindReference(parameter_index),
-                );
+                fn_step.context = StepContext::FindReference(parameter_index);
 
                 Ok(Some(vec![vec![fn_step]]))
             }
@@ -301,10 +285,7 @@ impl Tracer for SolidityTracer {
                 };
 
                 let mut next_step = step_from_node(step.path.clone(), value);
-                next_step.context = push_fluent(
-                    step.context.clone(),
-                    StepContext::GetReturnValue(anchor.clone()),
-                );
+                next_step.context = StepContext::GetReturnValue(anchor.clone());
 
                 Ok(Some(vec![vec![next_step]]))
             }
