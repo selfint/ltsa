@@ -21,6 +21,7 @@ tokio = { version = "1.26.0", features = [
     "rt",
     "sync",
     "time",
+    "rt-multi-thread",
 ] }
 tree-sitter = "0.20.9"
 tree-sitter-solidity = { git = "https://github.com/selfint/tree-sitter-solidity", version = "0.0.3" }

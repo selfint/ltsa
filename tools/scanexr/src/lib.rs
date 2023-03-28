@@ -60,12 +60,18 @@ where
 
     let mut all_stacktraces = vec![];
     for hacky_step in &hacky_steps {
-        let Some(stacktraces) = _get_all_stacktraces(tracer, lsp_client, root_dir, hacky_step, &pub_steps)
+        let stacktraces = _get_all_stacktraces(tracer, lsp_client, root_dir, hacky_step, &pub_steps)
             .await
-            .context("completing stacktraces")?
-            else {
+            .context("completing stacktraces");
+
+        let stacktraces = match stacktraces {
+            Ok(Some(stacktraces)) => stacktraces,
+            Ok(None) => continue,
+            Err(err) => {
+                eprintln!("got err: {:?}", err);
                 continue;
-            };
+            },
+        };
 
         all_stacktraces.extend(stacktraces);
     }

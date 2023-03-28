@@ -87,7 +87,7 @@ pub fn get_query_steps<C: Default>(
         for result in results {
             let start = result.start_position();
             let end = result.end_position();
-            locations.push(Step::new(dir.path(), start, end));
+            locations.push(Step::new(dir.path().canonicalize().unwrap(), start, end));
         }
     })?;
 

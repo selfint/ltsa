@@ -8,7 +8,7 @@ use crate::utils::{
 };
 use crate::{Stacktrace, Step, Tracer};
 
-use anyhow::{bail, ensure, Ok, Result};
+use anyhow::{bail, ensure, Result};
 use async_trait::async_trait;
 use lsp_client::client::Client;
 use tree_sitter::{Language, Node, Query, Tree};
@@ -139,7 +139,6 @@ impl Tracer for SolidityTracer {
 
                 let node = get_node(step, step_file_tree.root_node());
                 let declaration = node.parent().unwrap().parent().unwrap();
-                dbg!(declaration.kind());
                 match declaration.kind() {
                     "variable_declaration_statement" => {
                         let value = declaration.child_by_field_name("value").unwrap();
@@ -249,8 +248,6 @@ impl Tracer for SolidityTracer {
                     bail!("failed to get parameter index");
                 };
 
-                dbg!(parameter_index);
-
                 let fn_ident = fn_def.child_by_field_name("name").unwrap();
                 let mut fn_step = step_from_node(step.path.clone(), fn_ident);
                 fn_step.context = StepContext::FindReference(parameter_index);
@@ -272,11 +269,12 @@ impl Tracer for SolidityTracer {
                 let fn_call_steps =
                     get_query_steps(root_dir, tree_sitter_solidity::language(), &query)?;
 
-                dbg!(&fn_call_steps);
-
                 let mut next_steps = vec![];
                 for mut fn_call_step in fn_call_steps {
-                    let definitions = get_step_definitions(lsp_client, &fn_call_step).await?;
+                    let Ok(definitions) = get_step_definitions(lsp_client, &fn_call_step).await else {
+                        continue;
+                    };
+
                     for definition in definitions {
                         if &definition == step {
                             fn_call_step.context = step.context.clone();
