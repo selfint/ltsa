@@ -1,7 +1,7 @@
 use lsp_types::{notification::*, request::*, *};
 use scanexr::{
     tracers::solidity::StepContext,
-    utils::{debug_node_step, format_node_step, get_node, get_tree},
+    utils::{format_node_step, get_node, get_tree},
 };
 use std::process::Stdio;
 use tempfile::{tempdir, TempDir};
@@ -34,15 +34,11 @@ fn get_temp_dir() -> TempDir {
 #[test]
 fn test_queries() {
     let temp_dir = get_temp_dir();
-    let path = temp_dir.path().join("contract.sol");
-    let text = String::from_utf8(std::fs::read(path).unwrap()).unwrap();
 
     let mut parser = tree_sitter::Parser::new();
     parser
         .set_language(tree_sitter_solidity::language())
         .unwrap();
-
-    let tree = parser.parse(&text, None).unwrap();
 
     let pub_query = (
         Query::new(
