@@ -14,7 +14,6 @@ use lsp_types::PartialResultParams;
 use lsp_types::TextDocumentPositionParams;
 use lsp_types::Url;
 use lsp_types::WorkDoneProgressParams;
-use tree_sitter;
 use tree_sitter::Language;
 use tree_sitter::Node;
 use tree_sitter::Query;
