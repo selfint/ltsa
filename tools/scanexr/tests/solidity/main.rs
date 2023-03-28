@@ -132,12 +132,12 @@ async fn test_solidity() {
 
 async fn _test_solidity() {
     let temp_dir = get_temp_dir();
-    let root_dir = temp_dir.path().join("contract");
+    let root_dir = temp_dir.path().join("contract").canonicalize().unwrap();
     let (lsp_client, handles) = lsp_client::clients::child_client(start_solidity_ls());
 
     lsp_client
         .request::<Initialize>(InitializeParams {
-            root_uri: Some(Url::from_file_path(&root_dir.canonicalize().unwrap()).unwrap()),
+            root_uri: Some(Url::from_file_path(&root_dir).unwrap()),
             ..Default::default()
         })
         .await
