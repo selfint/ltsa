@@ -12,7 +12,7 @@ function other(address a, uint b) pure returns (uint, address) {
 
 function hacky(address target, uint amount) {
     (bool sent, ) = target.call{value: amount}("");
-                 // ^^^^^^ context: None
+                 // ^^^^^^ context: FindMember("call")
     require(sent, "Failed to send Ether");
 }
 
@@ -25,7 +25,7 @@ function other(address a, uint b) pure returns (uint, address) {
 }
 
 function hacky(address target, uint amount) {
-                    // ^^^^^^ context: None
+                    // ^^^^^^ context: FindMember("call")
     (bool sent, ) = target.call{value: amount}("");
     require(sent, "Failed to send Ether");
 }
@@ -513,7 +513,7 @@ function other(address a, uint b) pure returns (uint, address) {
 
 function hacky(address target, uint amount) {
     (bool sent, ) = target.call{value: amount}("");
-                 // ^^^^^^ context: None
+                 // ^^^^^^ context: FindMember("call")
     require(sent, "Failed to send Ether");
 }
 
@@ -526,7 +526,7 @@ function other(address a, uint b) pure returns (uint, address) {
 }
 
 function hacky(address target, uint amount) {
-                    // ^^^^^^ context: None
+                    // ^^^^^^ context: FindMember("call")
     (bool sent, ) = target.call{value: amount}("");
     require(sent, "Failed to send Ether");
 }
