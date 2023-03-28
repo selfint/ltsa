@@ -8,11 +8,12 @@ use crate::utils::{
 };
 use crate::{Stacktrace, Step, Tracer};
 
-use anyhow::{bail, ensure, Result};
+use anyhow::{bail, ensure, Context, Result};
 use async_trait::async_trait;
 use lsp_client::client::Client;
 use tree_sitter::{Language, Node, Query, Tree};
 
+/// TODO: if solc --lsp ever supports `findReferences`, do this properly
 async fn find_references(
     step: &Step<StepContext>,
     lsp_client: &Client,
@@ -21,7 +22,12 @@ async fn find_references(
     let query = (
         Query::new(
             tree_sitter_solidity::language(),
-            "(call_expression function: (identifier) @ident)",
+            "(call_expression function: [
+                (identifier) @ident
+                (member_expression
+                    property: (identifier) @ident
+                )
+            ])",
         )
         .unwrap(),
         0,
@@ -99,8 +105,7 @@ fn find_tuple_declaration_index(node: Node) -> (Node, Option<usize>) {
     (variable_declaration_tuple, index)
 }
 
-fn get_fn_arg(node: Node, index: usize) -> Option<Node> {
-    let call_expression = node.parent().unwrap();
+fn get_call_expression_arg(call_expression: Node, index: usize) -> Option<Node> {
     let mut cursor = call_expression.walk();
 
     let parameter = call_expression
@@ -132,6 +137,8 @@ pub enum StepContext {
     FindReference(usize),
     GetTupleValue(usize),
     GetReturnTupleValue(Box<Step<StepContext>>, usize),
+    /// goto where the member's value is set (including initiation)
+    FindMember(String),
 }
 
 #[async_trait]
@@ -170,6 +177,41 @@ impl Tracer for SolidityTracer {
 
                 Ok(None)
             }
+            ("identifier", "state_variable_declaration", StepContext::FindMember(member)) => {
+                dbg!(format!("got state variable declaration"));
+                // TODO: implement this
+                Ok(None)
+            }
+            ("type_cast_expression", _, _) => {
+                dbg!("got type cast expression, going to identifier");
+                let type_cast_expression = get_node(step, step_file_tree.root_node());
+                let mut cursor = type_cast_expression.walk();
+
+                let identifiers = type_cast_expression
+                    .named_children(&mut cursor)
+                    .filter(|c| c.kind() == "identifier")
+                    .collect::<Vec<_>>();
+                ensure!(
+                    identifiers.len() == 1,
+                    "got multiple identifiers in type cast expression"
+                );
+
+                let identifier = identifiers[0];
+                let next_step = step_from_node(step.path.clone(), identifier);
+
+                Ok(Some(vec![vec![next_step]]))
+            }
+            ("identifier", "interface_declaration", StepContext::GetReturnValue(anchor)) => {
+                dbg!("got identifier cast as interface with get return value context, returning to anchor");
+                let anchor_tree = get_tree(anchor);
+                let anchor_call_expression = get_node(anchor, anchor_tree.root_node());
+
+                dbg!(anchor_call_expression.to_sexp());
+                let arg = get_call_expression_arg(anchor_call_expression, 0).unwrap();
+                let next_step = step_from_node(anchor.path.clone(), arg);
+
+                Ok(Some(vec![vec![next_step]]))
+            }
             ("identifier", "member_expression", StepContext::None) => {
                 // if we are a property, return our parent object
                 {
@@ -183,7 +225,11 @@ impl Tracer for SolidityTracer {
                             .child_by_field_name("object")
                             .expect("got member expression with property but without object");
 
-                        let next_step = step_from_node(step.path.clone(), object);
+                        let mut next_step = step_from_node(step.path.clone(), object);
+                        let content = std::fs::read(&step.path).unwrap();
+                        let property_name = node.utf8_text(&content).unwrap();
+
+                        next_step.context = StepContext::FindMember(property_name.to_string());
 
                         return Ok(Some(vec![vec![next_step]]));
                     }
@@ -240,8 +286,12 @@ impl Tracer for SolidityTracer {
 
                 Ok(Some(vec![vec![function_step]]))
             }
-            ("call_expression", "variable_declaration_statement" | "return_statement", _) => {
-                dbg!("get function output assigned to value, getting function return value");
+            ("call_expression", parent_kind, ctx) => {
+                dbg!(ctx);
+                dbg!(format!(
+                    "got call expression in {}, getting return value",
+                    parent_kind
+                ));
 
                 let node = get_node(step, step_file_tree.root_node());
                 let function = node.child_by_field_name("function").unwrap();
@@ -301,7 +351,8 @@ impl Tracer for SolidityTracer {
 
                 Ok(Some(vec![vec![anchor_step]]))
             }
-            ("identifier", "parameter", StepContext::None) => {
+            ("identifier", "parameter", ctx) => {
+                dbg!(ctx);
                 dbg!("got parameter, finding function references");
 
                 let node = get_node(step, step_file_tree.root_node());
@@ -316,11 +367,9 @@ impl Tracer for SolidityTracer {
                 Ok(Some(vec![vec![fn_step]]))
             }
             ("identifier", "function_definition", StepContext::FindReference(..)) => {
-                // TODO: if solc --lsp support `findReferences`, do this properly
                 dbg!("got function definition with find reference context, finding references");
 
                 let references = find_references(step, lsp_client, root_dir).await?;
-
                 dbg!(references.len());
 
                 if !references.is_empty() {
@@ -337,10 +386,37 @@ impl Tracer for SolidityTracer {
                     Ok(None)
                 }
             }
-            ("identifier", "call_expression", StepContext::FindReference(index)) => {
+            ("identifier", "member_expression", StepContext::FindReference(index)) => {
+                dbg!("got member expression with find reference context, going to argument");
+
+                let identifier = get_node(step, step_file_tree.root_node());
+                let member_expression = identifier.parent().unwrap();
+
+                // if index is 0, then the argument is our matching object
+                let argument = if *index == 0 {
+                    member_expression.child_by_field_name("object").unwrap()
+                } else {
+                    let call_expression = member_expression.parent().unwrap();
+                    let Some(argument) = get_call_expression_arg(call_expression, index - 1)
+                            else {
+                                bail!("failed to get call expression argument");
+                            };
+
+                    argument
+                };
+
+                let next_step = step_from_node(step.path.clone(), argument);
+                Ok(Some(vec![vec![next_step]]))
+            }
+            (
+                "identifier" | "member_expression",
+                "call_expression",
+                StepContext::FindReference(index),
+            ) => {
                 dbg!("got call expression with find reference context, going to argument");
                 let node = get_node(step, step_file_tree.root_node());
-                let Some(argument) = get_fn_arg(node, *index) else {
+                let call_expression = node.parent().unwrap();
+                let Some(argument) = get_call_expression_arg(call_expression, *index) else {
                     bail!("failed to get argument");
                 };
 
@@ -348,10 +424,32 @@ impl Tracer for SolidityTracer {
 
                 Ok(Some(vec![vec![step]]))
             }
-            ("identifier", "call_expression", _) => {
-                dbg!("got call expression, going to function definition");
+            (
+                "member_expression",
+                "call_expression",
+                StepContext::GetReturnValue(..) | StepContext::GetReturnTupleValue(..),
+            ) => {
+                let member_expression = get_node(step, step_file_tree.root_node());
+                let function_identifier =
+                    member_expression.child_by_field_name("property").unwrap();
+                let mut function_step = step_from_node(step.path.clone(), function_identifier);
+                function_step.context = step.context.clone();
 
-                let mut function_definitions = get_step_definitions(lsp_client, step).await?;
+                Ok(Some(vec![vec![function_step]]))
+            }
+            (
+                "identifier",
+                parent_kind,
+                StepContext::GetReturnValue(..) | StepContext::GetReturnTupleValue(..),
+            ) => {
+                dbg!(format!(
+                    "got identifier in {} with return value context, going to function definition",
+                    parent_kind
+                ));
+
+                let mut function_definitions = get_step_definitions(lsp_client, step)
+                    .await
+                    .context("getting definition")?;
 
                 ensure!(
                     function_definitions.len() <= 1,
@@ -382,9 +480,22 @@ impl Tracer for SolidityTracer {
 
                 Ok(Some(vec![vec![next_step]]))
             }
+            ("member_expression", _, ctx) => {
+                dbg!(ctx);
+                dbg!(format!(
+                    "got member_expression in {}, going to property",
+                    parent_kind
+                ));
+
+                let member_expression = get_node(step, step_file_tree.root_node());
+                let property = member_expression.child_by_field_name("property").unwrap();
+                let next_step = step_from_node(step.path.clone(), property);
+
+                Ok(Some(vec![vec![next_step]]))
+            }
             ("identifier", _, _) => {
                 dbg!(format!(
-                    "get identifier in {}, finding definition",
+                    "got identifier in {}, finding definition",
                     parent_kind
                 ));
 
