@@ -20,11 +20,12 @@ async fn main() {
     let mut args = std::env::args();
     let _binary = args.next();
     let root_dir: PathBuf = args.next().unwrap().trim().into();
+    let root_dir = root_dir.canonicalize().unwrap();
     let (lsp_client, handles) = lsp_client::clients::child_client(start_solidity_ls());
 
     lsp_client
         .request::<Initialize>(InitializeParams {
-            root_uri: Some(Url::from_file_path(&root_dir.canonicalize().unwrap()).unwrap()),
+            root_uri: Some(Url::from_file_path(&root_dir).unwrap()),
             ..Default::default()
         })
         .await
