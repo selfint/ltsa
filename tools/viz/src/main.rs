@@ -66,20 +66,23 @@ impl ToHtml for Steps {
         let steps_html = self
             .steps
             .iter()
-            .map(|s| s.to_html())
-            .collect::<Result<Vec<_>>>()?;
-
-        let steps = steps_html
-            .iter()
             .enumerate()
             .map(|(i, s)| {
-                format!(
-                    r#"<div style="outline-style: solid; outline-color: black"><h2><b>Step: {i}</b></h2>{s}</div>"#,
-                )
-            })
-            .collect::<Vec<_>>();
+                let binding = s.path.clone();
+                let path = binding.file_name().unwrap().to_str().unwrap();
+                let s = s.to_html()?;
 
-        Ok(steps.join(""))
+                Ok(format!(
+                    r#"<div style="outline-style: solid; outline-color: black">
+                        <h2><b>Step: {i}</b></h2>
+                        <h3><b>Path: </b>{path}</h2>
+                        {s}
+                    </div>"#,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(steps_html.join(""))
     }
 }
 
@@ -113,7 +116,13 @@ impl ToHtml for Page {
             .0
             .stacktraces
             .iter()
-            .map(|s| s.to_html())
+            .enumerate()
+            .map(|(i, s)| {
+                let s = s.to_html()?;
+                Ok(format!(
+                    r#"<div style="outline-style: solid; outline-color: black"><h1><b>Stacktrace: {i}</b></h1>{s}</div>"#,
+                ))
+            })
             .collect::<Result<Vec<_>>>()?;
 
         let set_pages_map = stacktraces
