@@ -137,11 +137,24 @@ pub fn debug_node_step<C: Debug + Default>(node: &Node, parent: &Node, step: &St
 
 pub fn format_node_step<C: Debug + Default>(node: &Node, parent: &Node, step: &Step<C>) -> String {
     format!(
-        "\ngot step with:\npath: {:?}\nnode kind: {:?}\nparent: {:?}\ncontext: {:?}\nline:\n\n{}\n{}\n\n",
+        r#"
+got step with:
+path: {:?}
+node kind: {:?}
+parent: {:?}
+context: {:?}
+line:{}
+content:
+
+{}
+{}
+
+"#,
         step.path.as_path(),
         node.kind(),
         parent.kind(),
         step.context,
+        step.start.line,
         get_step_line(step),
         " ".repeat(node.start_position().column)
             + &"^".repeat(node.end_position().column - node.start_position().column)
