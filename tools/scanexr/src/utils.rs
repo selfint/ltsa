@@ -138,7 +138,8 @@ pub fn debug_node_step<C: Debug + Default>(node: &Node, parent: &Node, step: &St
 
 pub fn format_node_step<C: Debug + Default>(node: &Node, parent: &Node, step: &Step<C>) -> String {
     format!(
-        "\ngot step with:\nnode kind: {:?}\nparent: {:?}\ncontext: {:?}\nline:\n\n{}\n{}\n\n",
+        "\ngot step with:\npath: {:?}\nnode kind: {:?}\nparent: {:?}\ncontext: {:?}\nline:\n\n{}\n{}\n\n",
+        step.path.as_path(),
         node.kind(),
         parent.kind(),
         step.context,

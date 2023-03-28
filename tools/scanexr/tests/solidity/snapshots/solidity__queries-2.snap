@@ -2,14 +2,5 @@
 source: tools/scanexr/tests/solidity/main.rs
 expression: node_text
 ---
-
-got step with:
-node kind: "identifier"
-parent: "member_expression"
-context: ()
-line:
-
     (bool sent, ) = target.call{value: amount}("");
                            ^^^^
-
-

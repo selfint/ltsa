@@ -1,7 +1,7 @@
 use lsp_types::{notification::*, request::*, *};
 use scanexr::{
     tracers::solidity::StepContext,
-    utils::{format_node_step, get_node, get_tree},
+    utils::{get_node, get_step_line, get_tree},
 };
 use std::process::Stdio;
 use tempfile::{tempdir, TempDir};
@@ -19,14 +19,22 @@ fn start_solidity_ls() -> Child {
 }
 
 fn get_temp_dir() -> TempDir {
-    let contract = include_str!("contract.sol");
-    let other_file = include_str!("other_file.sol");
+    let contract = include_str!("contract/contract.sol");
+    let other_file = include_str!("contract/other_file.sol");
 
     let temp_dir = tempdir().expect("failed to create tempdir");
-    std::fs::write(temp_dir.path().join("contract.sol"), contract)
-        .expect("failed to copy contract");
-    std::fs::write(temp_dir.path().join("other_file.sol"), other_file)
-        .expect("failed to copy contract");
+    std::fs::create_dir(temp_dir.path().join("contract")).expect("failed to create dir");
+
+    std::fs::write(
+        temp_dir.path().join("contract").join("contract.sol"),
+        contract,
+    )
+    .expect("failed to copy contract");
+    std::fs::write(
+        temp_dir.path().join("contract").join("other_file.sol"),
+        other_file,
+    )
+    .expect("failed to copy contract");
 
     temp_dir
 }
@@ -85,8 +93,10 @@ fn test_queries() {
         .map(|step| {
             let tree = get_tree(step);
             let node = get_node(step, tree.root_node());
-            let parent = node.parent().unwrap();
-            format_node_step(&node, &parent, step)
+            get_step_line(step)
+                + "\n"
+                + &" ".repeat(node.start_position().column)
+                + &"^".repeat(node.end_position().column - node.start_position().column)
         })
         .collect::<Vec<_>>()
         .join(",\n");
@@ -104,8 +114,10 @@ fn test_queries() {
         .map(|step| {
             let tree = get_tree(step);
             let node = get_node(step, tree.root_node());
-            let parent = node.parent().unwrap();
-            format_node_step(&node, &parent, step)
+            get_step_line(step)
+                + "\n"
+                + &" ".repeat(node.start_position().column)
+                + &"^".repeat(node.end_position().column - node.start_position().column)
         })
         .collect::<Vec<_>>()
         .join(",\n");
@@ -119,12 +131,13 @@ async fn test_solidity() {
 }
 
 async fn _test_solidity() {
-    let root_dir = get_temp_dir();
+    let temp_dir = get_temp_dir();
+    let root_dir = temp_dir.path().join("contract");
     let (lsp_client, handles) = lsp_client::clients::child_client(start_solidity_ls());
 
     lsp_client
         .request::<Initialize>(InitializeParams {
-            root_uri: Some(Url::from_file_path(root_dir.path()).unwrap()),
+            root_uri: Some(Url::from_file_path(&root_dir.canonicalize().unwrap()).unwrap()),
             ..Default::default()
         })
         .await
@@ -171,15 +184,10 @@ async fn _test_solidity() {
 
     let tracer = scanexr::tracers::solidity::SolidityTracer;
 
-    let stacktraces = scanexr::get_all_stacktraces(
-        &tracer,
-        &lsp_client,
-        root_dir.path(),
-        &[pub_query],
-        &hacky_query,
-    )
-    .await
-    .unwrap();
+    let stacktraces =
+        scanexr::get_all_stacktraces(&tracer, &lsp_client, &root_dir, &[pub_query], &hacky_query)
+            .await
+            .unwrap();
 
     fn format_context(ctx: StepContext) -> StepContext {
         match ctx {
