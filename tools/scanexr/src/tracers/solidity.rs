@@ -13,6 +13,37 @@ use async_trait::async_trait;
 use lsp_client::client::Client;
 use tree_sitter::{Language, Node, Query, Tree};
 
+async fn find_references(
+    step: &Step<StepContext>,
+    lsp_client: &Client,
+    root_dir: &Path,
+) -> Result<Vec<Step<StepContext>>> {
+    let query = (
+        Query::new(
+            tree_sitter_solidity::language(),
+            "(call_expression function: (identifier) @ident)",
+        )
+        .unwrap(),
+        0,
+    );
+    let fn_call_steps = get_query_steps(root_dir, tree_sitter_solidity::language(), &query)?;
+
+    let mut references = vec![];
+    for fn_call_step in fn_call_steps {
+        let Ok(definitions) = get_step_definitions(lsp_client, &fn_call_step).await else {
+                        continue;
+                    };
+
+        for definition in definitions {
+            if &definition == step {
+                references.push(fn_call_step.clone());
+            }
+        }
+    }
+
+    Ok(references)
+}
+
 fn find_fn_parameter_index(node: Node) -> (Node, Option<usize>) {
     let parent = node.parent().unwrap();
     let fn_def = parent.parent().unwrap();
@@ -90,10 +121,6 @@ impl Tracer for SolidityTracer {
         step: &Step<Self::StepContext>,
         stop_at: &[Step<Self::StepContext>],
     ) -> Result<Option<Vec<Stacktrace<Self::StepContext>>>> {
-        if stop_at.contains(step) {
-            return Ok(Some(vec![vec![]]));
-        }
-
         let (node_kind, parent_kind) = {
             let node = get_node(step, step_file_tree.root_node());
             let kind = node.kind();
@@ -103,6 +130,10 @@ impl Tracer for SolidityTracer {
 
             (kind, parent_kind)
         };
+
+        if stop_at.contains(step) {
+            return Ok(Some(vec![vec![]]));
+        }
 
         match (node_kind, parent_kind, &step.context) {
             ("number_literal", _, _) => {
@@ -131,6 +162,7 @@ impl Tracer for SolidityTracer {
 
                 dbg!("got object, finding definition");
                 let definitions = get_step_definitions(lsp_client, step).await?;
+                ensure!(!definitions.is_empty(), "got no definitions");
 
                 Ok(Some(vec![definitions]))
             }
@@ -258,33 +290,20 @@ impl Tracer for SolidityTracer {
                 // TODO: if solc --lsp support `findReferences`, do this properly
                 dbg!("got function definition with find reference context, finding references");
 
-                let query = (
-                    Query::new(
-                        tree_sitter_solidity::language(),
-                        "(call_expression function: (identifier) @ident)",
-                    )
-                    .unwrap(),
-                    0,
-                );
-                let fn_call_steps =
-                    get_query_steps(root_dir, tree_sitter_solidity::language(), &query)?;
+                let references = find_references(step, lsp_client, root_dir).await?;
 
-                let mut next_steps = vec![];
-                for mut fn_call_step in fn_call_steps {
-                    let Ok(definitions) = get_step_definitions(lsp_client, &fn_call_step).await else {
-                        continue;
-                    };
+                dbg!(references.len());
 
-                    for definition in definitions {
-                        if &definition == step {
-                            fn_call_step.context = step.context.clone();
-                            next_steps.push(vec![fn_call_step.clone()]);
-                        }
-                    }
-                }
-
-                if !next_steps.is_empty() {
-                    Ok(Some(next_steps))
+                if !references.is_empty() {
+                    Ok(Some(
+                        references
+                            .into_iter()
+                            .map(|mut r| {
+                                r.context = step.context.clone();
+                                vec![r]
+                            })
+                            .collect(),
+                    ))
                 } else {
                     Ok(None)
                 }
