@@ -105,6 +105,60 @@ impl ToHtml for Stacktraces {
     }
 }
 
+struct Page(Stacktraces);
+
+impl ToHtml for Page {
+    fn to_html(&self) -> Result<String> {
+        let stacktraces = self
+            .0
+            .stacktraces
+            .iter()
+            .map(|s| s.to_html())
+            .collect::<Result<Vec<_>>>()?;
+
+        let set_pages_map = stacktraces
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                let s = s.replace('`', r#"\`"#);
+                format!("pagesMap.set({i}, String.raw`{s}`)")
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let links = (0..stacktraces.len())
+            .map(|i| {
+                format!(r##"<a href="#" onclick="return show({i});">Show stacktrace {i}</a>"##)
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        Ok(format!(
+            r###"
+            <html>
+                <body>
+                    <nav>
+                        {links}
+                    </nav>
+        
+                    <div id="content">tesfdsafdsaf</div>
+                    
+                    <script>
+                        const pagesMap = new Map();
+                        {set_pages_map}
+
+                        function show(index) {{
+                            document.querySelector("#content").innerHTML = pagesMap.get(index);
+                            return false;
+                        }}
+                    </script>
+                </body>
+            </html>
+            "###,
+        ))
+    }
+}
+
 fn main() -> Result<()> {
     let steps_path = &std::env::args().nth(1);
 
@@ -115,9 +169,9 @@ fn main() -> Result<()> {
 
     let stacktraces: Stacktraces = serde_json::from_str(&content)?;
 
-    let stacktraces = stacktraces.to_html()?;
+    let page = Page(stacktraces).to_html()?;
 
-    println!("{}", stacktraces);
+    println!("{}", page);
 
     Ok(())
 }
