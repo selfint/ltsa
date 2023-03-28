@@ -24,6 +24,7 @@ jobs:
     - run: npm install -g solc
     - name: Build
       run: cargo build --verbose
+    - run: pwd
     - name: Build viz
       run: cargo run --release --bin scanexr {{ inputs.contract }} | cargo run --release --bin viz - > viz.html
     - name: Upload a Build Artifact
