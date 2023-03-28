@@ -1,0 +1,35 @@
+name: Rust
+
+on:
+  workflow_dispatch:
+    inputs:
+      contract:
+        type: choice
+        options:
+          - "tools/scanexr/tests/solidity/contract"
+          - "tools/scanexr/tests/solidity/contract2"
+          - "tools/scanexr/tests/solidity/contract3"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - run: npm install -g solc
+    - name: Build
+      run: cargo build --verbose
+    - name: Build viz
+      run: |
+        cargo run --release --bin scanexr {{ inputs.contract }} 
+        | cargo run --release --bin viz - > viz.html
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v3.1.2
+      with:
+        name: viz.html
+        path: viz.html
+
