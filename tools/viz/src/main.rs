@@ -44,7 +44,7 @@ impl ToHtml for Step {
             let mut new_line = line.to_string();
 
             if i == self.end.line {
-                new_line.insert_str(self.end.character + 1, "</mark>")
+                new_line.insert_str(self.end.character, "</mark>")
             }
             if i == self.start.line {
                 new_line.insert_str(self.start.character, "<mark>")
@@ -106,8 +106,12 @@ impl ToHtml for Stacktraces {
 }
 
 fn main() -> Result<()> {
-    let steps_path: PathBuf = std::env::args().nth(1).unwrap().into();
-    let content = String::from_utf8(std::fs::read(&steps_path)?)?;
+    let steps_path = &std::env::args().nth(1);
+
+    let content = match steps_path.as_deref() {
+        None | Some("-") => std::io::read_to_string(std::io::stdin())?,
+        Some(steps_path) => String::from_utf8(std::fs::read(steps_path)?)?,
+    };
 
     let stacktraces: Stacktraces = serde_json::from_str(&content)?;
 
