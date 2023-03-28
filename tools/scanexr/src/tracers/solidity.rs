@@ -1,7 +1,8 @@
 // use tokio::sync::Mutex;
 
 use crate::utils::{
-    debug_node_step, get_node, get_query_results, get_step_definitions, get_tree, step_from_node,
+    debug_node_step, get_node, get_query_results, get_step_definitions, get_tree, push_fluent,
+    step_from_node,
 };
 use crate::{Stacktrace, Step, Tracer};
 
@@ -12,15 +13,19 @@ use tree_sitter::{Language, Node, Query, Tree};
 
 pub struct SolidityTracer;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum StepContext {
-    GetReturnValue(Box<Step<StepContext>>),
+    #[default]
+    None,
+    GetReturnValue(Box<Step<Vec<StepContext>>>),
     FindReference(usize),
+    GetTupleValue(usize),
+    GetReturnTupleValue(Box<Step<Vec<StepContext>>>, usize),
 }
 
 #[async_trait]
 impl Tracer for SolidityTracer {
-    type StepContext = StepContext;
+    type StepContext = Vec<StepContext>;
 
     fn get_language(&self) -> Language {
         tree_sitter_solidity::language()
@@ -47,13 +52,18 @@ impl Tracer for SolidityTracer {
             (kind, parent_kind)
         };
 
-        match (node_kind, parent_kind, &step.context) {
+        let default_context = StepContext::default();
+        let current_context = step.context.last().unwrap_or(&default_context);
+
+        dbg!(current_context);
+
+        match (node_kind, parent_kind, current_context) {
             ("number_literal", _, _) => {
                 dbg!("got literal");
 
                 Ok(None)
             }
-            ("identifier", "member_expression", None) => {
+            ("identifier", "member_expression", StepContext::None) => {
                 // if we are a property, return our parent object
                 {
                     let node = get_node(step, step_file_tree.root_node());
@@ -82,11 +92,51 @@ impl Tracer for SolidityTracer {
 
                 let node = get_node(step, step_file_tree.root_node());
                 let declaration = node.parent().unwrap().parent().unwrap();
-                let value = declaration.child_by_field_name("value").unwrap();
+                dbg!(declaration.kind());
+                match declaration.kind() {
+                    "variable_declaration_statement" => {
+                        let value = declaration.child_by_field_name("value").unwrap();
 
-                let next_step = step_from_node(step.path.clone(), value);
+                        let next_step = step_from_node(step.path.clone(), value);
 
-                Ok(Some(vec![vec![next_step]]))
+                        Ok(Some(vec![vec![next_step]]))
+                    }
+                    "variable_declaration_tuple" => {
+                        let (tuple_declaration, Some(tuple_index)) = find_tuple_declaration_index(node) else {
+                            bail!("failed to find tuple index");
+                        };
+
+                        let declaration_statement = tuple_declaration.parent().unwrap();
+                        let declaration_value =
+                            declaration_statement.child_by_field_name("value").unwrap();
+
+                        let mut next_step = step_from_node(step.path.clone(), declaration_value);
+                        next_step.context = push_fluent(
+                            step.context.clone(),
+                            StepContext::GetTupleValue(tuple_index),
+                        );
+
+                        Ok(Some(vec![vec![next_step]]))
+                    }
+                    _ => todo!(),
+                }
+            }
+            (
+                "call_expression",
+                "variable_declaration_statement" | "return_statement",
+                StepContext::GetTupleValue(index),
+            ) => {
+                dbg!("get function output assigned to value, getting function return value");
+
+                let node = get_node(step, step_file_tree.root_node());
+                let function = node.child_by_field_name("function").unwrap();
+                let mut function_step = step_from_node(step.path.clone(), function);
+                function_step.context = push_fluent(
+                    step.context.clone(),
+                    StepContext::GetReturnTupleValue(Box::new(step.clone()), *index),
+                );
+
+                Ok(Some(vec![vec![function_step]]))
             }
             ("call_expression", "variable_declaration_statement" | "return_statement", _) => {
                 dbg!("get function output assigned to value, getting function return value");
@@ -94,11 +144,18 @@ impl Tracer for SolidityTracer {
                 let node = get_node(step, step_file_tree.root_node());
                 let function = node.child_by_field_name("function").unwrap();
                 let mut function_step = step_from_node(step.path.clone(), function);
-                function_step.context = Some(StepContext::GetReturnValue(Box::new(step.clone())));
+                function_step.context = push_fluent(
+                    step.context.clone(),
+                    StepContext::GetReturnValue(Box::new(step.clone())),
+                );
 
                 Ok(Some(vec![vec![function_step]]))
             }
-            ("identifier", "function_definition", Some(StepContext::GetReturnValue(..))) => {
+            (
+                "identifier",
+                "function_definition",
+                StepContext::GetReturnValue(..) | StepContext::GetReturnTupleValue(..),
+            ) => {
                 let node = get_node(step, step_file_tree.root_node());
                 let parent = node.parent().unwrap();
 
@@ -125,21 +182,7 @@ impl Tracer for SolidityTracer {
                         .collect(),
                 ))
             }
-            ("identifier", "return_statement" | "call_argument", _) => {
-                dbg!(format!(
-                    "get identifier in {}, finding definition",
-                    parent_kind
-                ));
-
-                let mut definitions = get_step_definitions(lsp_client, step).await?;
-                ensure!(definitions.len() <= 1, "got multiple function definitions");
-                ensure!(!definitions.is_empty(), "failed to get function definition");
-                let mut definition = definitions.remove(0);
-                definition.context = step.context.clone();
-
-                Ok(Some(vec![vec![definition]]))
-            }
-            ("identifier", "parameter", Some(StepContext::GetReturnValue(anchor))) => {
+            ("identifier", "parameter", StepContext::GetReturnValue(anchor)) => {
                 dbg!("return value is a parameter, we are done, returning to anchor");
 
                 let node = get_node(step, step_file_tree.root_node());
@@ -159,7 +202,7 @@ impl Tracer for SolidityTracer {
 
                 Ok(Some(vec![vec![anchor_step]]))
             }
-            ("identifier", "parameter", None) => {
+            ("identifier", "parameter", StepContext::None) => {
                 dbg!("got parameter, finding function references");
 
                 let node = get_node(step, step_file_tree.root_node());
@@ -171,11 +214,14 @@ impl Tracer for SolidityTracer {
 
                 let fn_ident = fn_def.child_by_field_name("name").unwrap();
                 let mut fn_step = step_from_node(step.path.clone(), fn_ident);
-                fn_step.context = Some(StepContext::FindReference(parameter_index));
+                fn_step.context = push_fluent(
+                    step.context.clone(),
+                    StepContext::FindReference(parameter_index),
+                );
 
                 Ok(Some(vec![vec![fn_step]]))
             }
-            ("identifier", "function_definition", Some(StepContext::FindReference(..))) => {
+            ("identifier", "function_definition", StepContext::FindReference(..)) => {
                 // TODO: if solc --lsp support `findReferences`, do this properly
                 dbg!("got function definition with find reference context, finding references");
 
@@ -214,7 +260,7 @@ impl Tracer for SolidityTracer {
                     Ok(None)
                 }
             }
-            ("identifier", "call_expression", Some(StepContext::FindReference(index))) => {
+            ("identifier", "call_expression", StepContext::FindReference(index)) => {
                 dbg!("got call expression with find reference context, going to argument");
                 let node = get_node(step, step_file_tree.root_node());
                 let Some(argument) = get_fn_arg(node, *index) else {
@@ -225,7 +271,7 @@ impl Tracer for SolidityTracer {
 
                 Ok(Some(vec![vec![step]]))
             }
-            ("identifier", "call_expression", None | Some(StepContext::GetReturnValue(..))) => {
+            ("identifier", "call_expression", _) => {
                 dbg!("got call expression, going to function definition");
 
                 let mut function_definitions = get_step_definitions(lsp_client, step).await?;
@@ -244,6 +290,38 @@ impl Tracer for SolidityTracer {
 
                 Ok(Some(vec![vec![function_definition]]))
             }
+            (
+                "tuple_expression",
+                "return_statement",
+                StepContext::GetReturnTupleValue(anchor, index),
+            ) => {
+                let node = get_node(step, step_file_tree.root_node());
+                let Some(value) = get_tuple_index(node, *index) else {
+                    bail!("failed to get tuple index value");
+                };
+
+                let mut next_step = step_from_node(step.path.clone(), value);
+                next_step.context = push_fluent(
+                    step.context.clone(),
+                    StepContext::GetReturnValue(anchor.clone()),
+                );
+
+                Ok(Some(vec![vec![next_step]]))
+            }
+            ("identifier", _, _) => {
+                dbg!(format!(
+                    "get identifier in {}, finding definition",
+                    parent_kind
+                ));
+
+                let mut definitions = get_step_definitions(lsp_client, step).await?;
+                ensure!(definitions.len() <= 1, "got multiple function definitions");
+                ensure!(!definitions.is_empty(), "failed to get function definition");
+                let mut definition = definitions.remove(0);
+                definition.context = step.context.clone();
+
+                Ok(Some(vec![vec![definition]]))
+            }
             _ => todo!(),
         }
     }
@@ -259,8 +337,20 @@ fn find_fn_parameter_index(node: Node) -> (Node, Option<usize>) {
         .filter(|c| c.kind() == "parameter")
         .position(|p| p == parent);
 
-    dbg!(fn_def.to_sexp(), index);
     (fn_def, index)
+}
+
+fn find_tuple_declaration_index(node: Node) -> (Node, Option<usize>) {
+    let variable_declaration = node.parent().unwrap();
+    let variable_declaration_tuple = variable_declaration.parent().unwrap();
+    let mut cursor = variable_declaration_tuple.walk();
+
+    let index = variable_declaration_tuple
+        .named_children(&mut cursor)
+        .filter(|c| c.kind() == "variable_declaration")
+        .position(|p| p == variable_declaration);
+
+    (variable_declaration_tuple, index)
 }
 
 fn get_fn_arg(node: Node, index: usize) -> Option<Node> {
@@ -273,4 +363,15 @@ fn get_fn_arg(node: Node, index: usize) -> Option<Node> {
         .nth(index);
 
     parameter
+}
+
+fn get_tuple_index(node: Node, index: usize) -> Option<Node> {
+    let mut cursor = node.walk();
+
+    let value = node
+        .named_children(&mut cursor)
+        .filter(|c| c.kind() == "identifier")
+        .nth(index);
+
+    value
 }

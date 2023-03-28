@@ -49,7 +49,7 @@ pub fn get_query_results<'a>(
     nodes
 }
 
-pub fn get_query_steps<C>(
+pub fn get_query_steps<C: Default>(
     root_dir: &Path,
     language: Language,
     query: &(Query, u32),
@@ -94,7 +94,7 @@ pub fn get_query_steps<C>(
     Ok(locations)
 }
 
-pub fn location_to_step<C>(location: Location) -> Result<Step<C>> {
+pub fn location_to_step<C: Default>(location: Location) -> Result<Step<C>> {
     let path = location
         .uri
         .to_file_path()
@@ -105,7 +105,7 @@ pub fn location_to_step<C>(location: Location) -> Result<Step<C>> {
     Ok(Step::new(path, start, end))
 }
 
-pub fn get_tree<C>(step: &Step<C>) -> Tree {
+pub fn get_tree<C: Default>(step: &Step<C>) -> Tree {
     let mut parser = tree_sitter::Parser::new();
     parser
         .set_language(tree_sitter_solidity::language())
@@ -118,21 +118,21 @@ pub fn get_tree<C>(step: &Step<C>) -> Tree {
         .expect("failed to parse content")
 }
 
-pub fn get_node<'a, C>(step: &Step<C>, root: Node<'a>) -> Node<'a> {
+pub fn get_node<'a, C: Default>(step: &Step<C>, root: Node<'a>) -> Node<'a> {
     root.descendant_for_point_range(step.start.into(), step.end.into())
         .expect("failed to get node at location range")
 }
 
-pub fn get_step_line<C>(step: &Step<C>) -> String {
+pub fn get_step_line<C: Default>(step: &Step<C>) -> String {
     let content = String::from_utf8(std::fs::read(&step.path).unwrap()).unwrap();
     content.lines().nth(step.start.line).unwrap().to_string()
 }
 
-pub fn step_from_node<C>(path: PathBuf, node: Node) -> Step<C> {
-    Step::new(path, node.start_position(), node.end_position())
+pub fn step_from_node<C: Default>(path: PathBuf, node: Node) -> Step<C> {
+    Step::from((path, node))
 }
 
-pub fn debug_node_step<C: Debug>(node: &Node, parent: &Node, step: &Step<C>) {
+pub fn debug_node_step<C: Debug + Default>(node: &Node, parent: &Node, step: &Step<C>) {
     eprintln!(
         "\ngot step with:\nnode kind: {:?}\nparent: {:?}\ncontext: {:?}\nline:\n\n{}\n{}\n\n",
         node.kind(),
@@ -144,7 +144,10 @@ pub fn debug_node_step<C: Debug>(node: &Node, parent: &Node, step: &Step<C>) {
     );
 }
 
-pub async fn get_step_definitions<C>(lsp_client: &Client, step: &Step<C>) -> Result<Vec<Step<C>>> {
+pub async fn get_step_definitions<C: Default>(
+    lsp_client: &Client,
+    step: &Step<C>,
+) -> Result<Vec<Step<C>>> {
     let Some(definitions) = lsp_client
         .request::<GotoDefinition>(GotoDeclarationParams {
             text_document_position_params: TextDocumentPositionParams {
@@ -174,4 +177,9 @@ pub async fn get_step_definitions<C>(lsp_client: &Client, step: &Step<C>) -> Res
             .collect::<Result<Vec<_>>>()?,
         GotoDefinitionResponse::Link(_) => todo!("what is link?"),
     })
+}
+
+pub fn push_fluent<T>(mut source: Vec<T>, item: T) -> Vec<T> {
+    source.push(item);
+    source
 }

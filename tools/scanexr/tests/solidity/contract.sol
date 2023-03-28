@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+import {other} from "./other_file.sol";
+
 /*
 EtherStore is a contract where you can deposit and withdraw ETH.
 This contract is vulnerable to re-entrancy attack.
@@ -43,14 +45,16 @@ contract EtherStore {
         if (false) {
             return foo(0x0000000000000000000000000000000000000000, msg.sender);
         } else if (false) {
-            return bar(0x0000000000000000000000000000000000000000, msg.sender);
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
         }
 
         return getSender2();
     }
 
-    function bar(address a, address b) private pure returns (address) {
-        return b;
+    function ret2(address a, address a2) private pure returns (address) {
+        (uint c, address d) = other(a2, 1);
+
+        return d;
     }
 
     function foo(address a, address b) private pure returns (address) {

@@ -1,17 +1,17 @@
 use std::{fmt::Debug, path::PathBuf};
 
 use lsp_types::Position;
-use tree_sitter::Point;
+use tree_sitter::{Node, Point};
 
 #[derive(Debug, Clone, Eq)]
-pub struct Step<C> {
+pub struct Step<C: Default> {
     pub path: PathBuf,
     pub start: StepPosition,
     pub end: StepPosition,
-    pub context: Option<C>,
+    pub context: C,
 }
 
-impl<C> Step<C> {
+impl<C: Default> Step<C> {
     pub fn new(
         path: PathBuf,
         start: impl Into<StepPosition>,
@@ -21,12 +21,12 @@ impl<C> Step<C> {
             path,
             start: start.into(),
             end: end.into(),
-            context: None,
+            context: Default::default(),
         }
     }
 }
 
-impl<C> PartialEq for Step<C> {
+impl<C: Default> PartialEq for Step<C> {
     fn eq(&self, other: &Self) -> bool {
         self.path == other.path && self.start == other.start && self.end == other.end
         // && self.context == other.context
@@ -72,5 +72,11 @@ impl From<StepPosition> for Position {
             line: step_position.line as u32,
             character: step_position.character as u32,
         }
+    }
+}
+
+impl<C: Default> From<(PathBuf, Node<'_>)> for Step<C> {
+    fn from((path, node): (PathBuf, Node)) -> Self {
+        Step::new(path, node.start_position(), node.end_position())
     }
 }

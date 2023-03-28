@@ -18,7 +18,7 @@ pub type Stacktrace<C> = Vec<Step<C>>;
 
 #[async_trait]
 pub trait Tracer: Send + Sync {
-    type StepContext: Clone + Send + Sync;
+    type StepContext: Clone + Default + Send + Sync;
 
     fn get_language(&self) -> Language;
 
@@ -83,9 +83,9 @@ where
     T: Tracer,
     T::StepContext: Debug,
 {
-    // get stacktraces leading to step
     let step_file_tree = get_tree(step);
 
+    // get stacktraces leading to step
     let Some(stacktraces) = tracer
         .get_stacktraces(lsp_client, step_file_tree, step, stop_at)
         .await?
