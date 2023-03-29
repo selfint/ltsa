@@ -239,21 +239,23 @@ impl ToHtml for Page {
 
                         function setStacktrace(index) {{
                             document.querySelector("#stacktrace").innerHTML = pagesMap.get(index);
+                            document.querySelector("#stacktrace").style.display = "block";
                             return false;
                         }}
 
                         function setFile(index) {{
                             document.querySelector("#file").innerHTML = pagesMap.get(index);
+                            document.querySelector("#file").style.display = "block";
                             return false;
                         }}
 
                         function hideStacktrace(index) {{
-                            document.querySelector("#stacktrace").innerHTML = "No stacktrace selected";
+                            document.querySelector("#stacktrace").style.display = "none";
                             return false;
                         }}
 
                         function hideFile(index) {{
-                            document.querySelector("#file").innerHTML = "No file selected";
+                            document.querySelector("#file").style.display = "none";
                             return false;
                         }}
                     </script>
