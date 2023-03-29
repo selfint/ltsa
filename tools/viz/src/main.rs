@@ -78,7 +78,7 @@ impl ToHtml for Steps {
                 let path = binding.file_name().unwrap().to_str().unwrap();
                 let s = s.to_html()?;
                 let path_link = format!(
-                    r##"<a href="#" onclick="return show('{path}');">
+                    r##"<a href="#" onclick="return setFile('{path}');">
                         {path}
                     </a>"##
                 );
@@ -133,7 +133,9 @@ impl ToHtml for Page {
         let stacktrace_links = (0..stacktraces_html.len())
             .map(|i| {
                 let i = i + 1;
-                format!(r##"<a href="#" onclick="return show({i});">Show stacktrace {i}</a>"##)
+                format!(
+                    r##"<a href="#" onclick="return setStacktrace({i});">Show stacktrace {i}</a>"##
+                )
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -178,7 +180,7 @@ impl ToHtml for Page {
             .map(|p| {
                 let filename = p.file_name().unwrap().to_str().unwrap();
                 format!(
-                    r##"<a href="#" onclick="return show('{filename}');">Show file {filename}</a>"##
+                    r##"<a href="#" onclick="return setFile('{filename}');">Show file {filename}</a>"##
                 )
             })
             .collect::<Vec<_>>()
@@ -208,6 +210,20 @@ impl ToHtml for Page {
                 width: 5ch;
                 text-align: right;
             }
+
+            #content {
+                display: grid;
+                grid-template-areas: 'stacktrace file';
+                grid-area-columns: 1fr 1fr;
+            }
+
+            #stacktrace {
+                grid-area: "stacktrace";
+            }
+
+            #file {
+                grid-area: "file";
+            }
             "#;
 
         Ok(format!(
@@ -221,8 +237,23 @@ impl ToHtml for Page {
                         {set_stacktrace_pages}
                         {set_file_pages}
 
-                        function show(index) {{
-                            document.querySelector("#content").innerHTML = pagesMap.get(index);
+                        function setStacktrace(index) {{
+                            document.querySelector("#stacktrace").innerHTML = pagesMap.get(index);
+                            return false;
+                        }}
+
+                        function setFile(index) {{
+                            document.querySelector("#file").innerHTML = pagesMap.get(index);
+                            return false;
+                        }}
+
+                        function hideStacktrace(index) {{
+                            document.querySelector("#stacktrace").innerHTML = "No stacktrace selected";
+                            return false;
+                        }}
+
+                        function hideFile(index) {{
+                            document.querySelector("#file").innerHTML = "No file selected";
                             return false;
                         }}
                     </script>
@@ -231,11 +262,16 @@ impl ToHtml for Page {
                     <nav style="background: #b5b5b5;">
                         <h2>Pages</h2>
                         {stacktrace_links}
+                        <a href="#" onclick="return hideStacktrace();">Hide stacktrace</a>
                         <br />---<br />
                         {file_pages_links}
+                        <a href="#" onclick="return hideFile();">Hide file</a>
                     </nav>
                     
-                    <div id="content">No page selected</div>
+                    <div id="content">
+                        <div id="stacktrace">No stacktrace selected</div>
+                        <div id="file">No file selected</div>
+                    </div>
                 </body>
             </html>
             "###,
