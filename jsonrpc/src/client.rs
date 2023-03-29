@@ -31,16 +31,33 @@ impl Drop for Client {
 }
 
 impl Client {
-    pub fn new(
+    pub fn new(client_tx: UnboundedSender<String>, server_rx: UnboundedReceiver<String>) -> Self {
+        let server_notification_handler = |value| -> Result<()> {
+            eprintln!(
+                "Got notification from server: {}",
+                serde_json::to_string_pretty(&value).context("serializing notification")?
+            );
+
+            Ok(())
+        };
+
+        Client::with_handler(client_tx, server_rx, server_notification_handler)
+    }
+
+    pub fn with_handler<H: Fn(Value) -> Result<()> + Send + 'static>(
         client_tx: UnboundedSender<String>,
         mut server_rx: UnboundedReceiver<String>,
+        server_notification_handler: H,
     ) -> Self {
         let pending_responses = Arc::new(Mutex::new(HashMap::<i64, oneshot::Sender<_>>::new()));
         let pending_responses_clone = Arc::clone(&pending_responses);
 
         let response_resolver_handle = tokio::spawn(async move {
+            let handler = server_notification_handler;
             while let Some(response) = server_rx.recv().await {
-                if let Err(error) = Client::handle_response(response, &pending_responses_clone) {
+                if let Err(error) =
+                    Client::handle_response(response, &pending_responses_clone, &handler)
+                {
                     eprintln!("Failed to handle response due to error: {:?}", error);
                 }
             }
@@ -56,9 +73,10 @@ impl Client {
         }
     }
 
-    fn handle_response(
+    fn handle_response<H: Fn(Value) -> Result<()>>(
         response: String,
         pending_responses: &Mutex<HashMap<i64, oneshot::Sender<Value>>>,
+        server_notification_handler: &H,
     ) -> Result<()> {
         let value = serde_json::from_str::<Value>(&response)
             .context(format!("failed to deserialize response: {:?}", response))?;
@@ -66,19 +84,23 @@ impl Client {
         let id = value
             .as_object()
             .context(format!("got non-object response: {:?}", value))?
-            .get("id")
-            .context(format!("got response without id: {:?}", value))?;
+            .get("id");
 
-        let id = id.as_i64().context(format!("got non-i64 id: {:?}", id))?;
+        match id {
+            Some(id) => {
+                let id = id.as_i64().context(format!("got non-i64 id: {:?}", id))?;
 
-        pending_responses
-            .lock()
-            .expect("failed to acquire lock")
-            .remove(&id)
-            .context(format!("response id has no pending response: {:?}", id))?
-            .send(value)
-            .map_err(anyhow::Error::msg)
-            .context("failed to send response")
+                pending_responses
+                    .lock()
+                    .expect("failed to acquire lock")
+                    .remove(&id)
+                    .context(format!("response id has no pending response: {:?}", id))?
+                    .send(value)
+                    .map_err(anyhow::Error::msg)
+                    .context("failed to send response")
+            }
+            None => server_notification_handler(value),
+        }
     }
 
     pub async fn request<P: Serialize, R: DeserializeOwned, E: DeserializeOwned>(
