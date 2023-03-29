@@ -33,7 +33,6 @@ impl Client {
                 jsonrpc_client_tx,
                 server_rx,
                 |notification| -> Result<()> {
-                    //
                     let diagnostics: Notification<PublishDiagnosticsParams> =
                         serde_json::from_value(notification)?;
                     let diagnostics = diagnostics
