@@ -41,24 +41,27 @@ impl ToHtml for Step {
                 continue;
             }
 
-            let mut new_line = format!("{i: >5} | {}", line);
+            let mut new_line = line.to_string();
 
             if i == self.end.line {
-                new_line.insert_str(self.end.character + 8, "</mark>")
+                new_line.insert_str(self.end.character, "</mark>")
             }
             if i == self.start.line {
-                new_line.insert_str(self.start.character + 8, "<mark>")
+                new_line.insert_str(self.start.character, "<mark>")
             }
+
+            let new_line = format!("<span>{new_line}</span>");
 
             new_lines.push(new_line);
         }
 
         let new_lines = new_lines.join("\n");
-        let style = r#"style="
-                        outline-style: solid;
-                        outline-color: black;
-                        white-space: pre-wrap;
-                        ""#;
+        let style = format!(
+            r#"style="
+                white-space: pre-wrap;
+                counter-set: line {start_line}
+                ""#
+        );
 
         Ok(format!(r#"<pre {style}>{new_lines}</pre>"#))
     }
@@ -83,10 +86,11 @@ impl ToHtml for Steps {
                 Ok(format!(
                     r#"<div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
                         <div>
-                            <h2>Step: {i} | {path_link}</h2>
+                            <h2>{: >3}. {path_link}</h2>
                         </div>
                         {s}
                     </div>"#,
+                    i + 1
                 ))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -105,6 +109,7 @@ impl ToHtml for Page {
             .enumerate()
             .map(|(i, s)| {
                 let s = s.to_html()?;
+                let i = i + 1;
                 Ok(format!(
                     r#"<div>
                         <h1>Stacktrace: {i}</h1>
@@ -118,6 +123,7 @@ impl ToHtml for Page {
             .iter()
             .enumerate()
             .map(|(i, s)| {
+                let i = i + 1;
                 let s = s.replace('`', r#"\`"#);
                 format!("pagesMap.set({i}, String.raw`{s}`)")
             })
@@ -126,6 +132,7 @@ impl ToHtml for Page {
 
         let stacktrace_links = (0..stacktraces_html.len())
             .map(|i| {
+                let i = i + 1;
                 format!(r##"<a href="#" onclick="return show({i});">Show stacktrace {i}</a>"##)
             })
             .collect::<Vec<_>>()
@@ -137,10 +144,20 @@ impl ToHtml for Page {
             .flat_map(|stacktrace| stacktrace.steps.iter().map(|s| s.path.clone()))
             .collect::<HashSet<PathBuf>>();
 
+        let mut step_paths = step_paths.iter().collect::<Vec<_>>();
+
+        step_paths.sort();
+
         let set_file_pages = step_paths
             .iter()
             .map(|p| {
-                let content = String::from_utf8(std::fs::read(p)?)?.replace('`', r#"\`"#);
+                let content = String::from_utf8(std::fs::read(p)?)?
+                    .replace('`', r#"\`"#)
+                    .lines()
+                    .map(|l| format!("<span>{l}</span>"))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
                 let filename = p.file_name().unwrap().to_str().unwrap();
                 let content_html = format!(
                     r#"
@@ -167,10 +184,38 @@ impl ToHtml for Page {
             .collect::<Vec<_>>()
             .join("\n");
 
+        let style = r#"
+            pre {
+                // background: #303030;
+                // color: #f1f1f1;
+                // padding: 10px 16px;
+                // border-radius: 2px;
+                // border-top: 4px solid #00aeef;
+                // -moz-box-shadow: inset 0 0 10px #000;
+                // box-shadow: inset 0 0 10px #000;
+            }
+            
+            pre span {
+                counter-increment: line;
+            }
+            pre span:before {
+                content: counter(line);
+                display: inline-block;
+                border-right: 1px solid #ddd;
+                padding: 0 .5em;
+                margin-right: .5em;
+                color: #888;
+                width: 5ch;
+                text-align: right;
+            }
+            "#;
+
         Ok(format!(
             r###"
+            <!DOCTYPE html>
             <html>
                 <head>
+                    <style>{style}</style>
                     <script>
                         const pagesMap = new Map();
                         {set_stacktrace_pages}
@@ -183,10 +228,10 @@ impl ToHtml for Page {
                     </script>
                 </head>
                 <body>
-                    <nav>
+                    <nav style="background: #b5b5b5;">
                         <h2>Pages</h2>
                         {stacktrace_links}
-                        |
+                        <br />---<br />
                         {file_pages_links}
                     </nav>
                     
