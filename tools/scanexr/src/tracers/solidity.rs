@@ -79,6 +79,74 @@ async fn find_references(
     Ok(references)
 }
 
+/// find locations where an (identifier) is set
+async fn find_assignments(
+    step: &Step<StepContext>,
+    lsp_client: &Client,
+    root_dir: &Path,
+) -> Result<Vec<Step<StepContext>>> {
+    let query = (
+        Query::new(
+            tree_sitter_solidity::language(),
+            "(assignment_expression
+                left: [
+                    (identifier) @ident
+                    (member_expression
+                        property: (identifier) @ident
+                    )
+                ]
+            )",
+        )
+        .unwrap(),
+        0,
+    );
+
+    let ident_assigned_steps = {
+        let language = tree_sitter_solidity::language();
+
+        let mut locations = vec![];
+        visit_dirs(root_dir, &mut |dir| {
+            let content =
+                String::from_utf8(std::fs::read(dir.path()).expect("failed to read file"))
+                    .expect("got non-utf8 file");
+
+            let mut parser = tree_sitter::Parser::new();
+            parser
+                .set_language(language)
+                .expect("failed to set language on parser");
+            let tree = parser
+                .parse(&content, None)
+                .expect("failed to parse content");
+
+            let results = get_query_results(&content, tree.root_node(), &query.0, query.1);
+
+            for result in results {
+                let start = result.start_position();
+                let end = result.end_position();
+                locations.push(Step::new(dir.path(), start, end));
+            }
+        })?;
+
+        locations
+    };
+
+    let mut assignments = vec![];
+    for ident_assign_step in ident_assigned_steps {
+        let Ok(definitions) = get_step_definitions(lsp_client, &ident_assign_step).await
+            else {
+                continue;
+            };
+
+        for definition in definitions {
+            if &definition == step {
+                assignments.push(ident_assign_step.clone());
+            }
+        }
+    }
+
+    Ok(assignments)
+}
+
 fn find_fn_parameter_index(node: Node) -> (Node, Option<usize>) {
     let parent = node.parent().unwrap();
     let fn_def = parent.parent().unwrap();
@@ -138,7 +206,7 @@ pub enum StepContext {
     GetTupleValue(usize),
     GetReturnTupleValue(Box<Step<StepContext>>, usize),
     /// goto where the member's value is set (including initiation)
-    FindMember(String),
+    FindAssignment,
 }
 
 #[async_trait]
@@ -177,10 +245,35 @@ impl Tracer for SolidityTracer {
 
                 Ok(None)
             }
-            ("identifier", "state_variable_declaration", StepContext::FindMember(member)) => {
-                dbg!(format!("got state variable declaration"));
-                // TODO: implement this
-                Ok(None)
+            ("identifier", "state_variable_declaration", StepContext::None) => {
+                dbg!(format!(
+                    "got state variable declaration, finding assignments"
+                ));
+                let assignments = find_assignments(step, lsp_client, root_dir).await?;
+                dbg!(assignments.len());
+
+                if !assignments.is_empty() {
+                    Ok(Some(
+                        assignments
+                            .into_iter()
+                            .map(|mut r| {
+                                r.context = StepContext::FindAssignment;
+                                vec![r]
+                            })
+                            .collect(),
+                    ))
+                } else {
+                    Ok(None)
+                }
+            }
+            ("identifier", "assignment_expression", StepContext::FindAssignment) => {
+                dbg!("got assignment expression with find assignment context, going to rhs");
+                let assignment_expression =
+                    get_node(step, step_file_tree.root_node()).parent().unwrap();
+                let rhs = assignment_expression.child_by_field_name("right").unwrap();
+                let next_step = step_from_node(step.path.clone(), rhs);
+
+                Ok(Some(vec![vec![next_step]]))
             }
             ("type_cast_expression", _, _) => {
                 dbg!("got type cast expression, going to identifier");
@@ -225,11 +318,11 @@ impl Tracer for SolidityTracer {
                             .child_by_field_name("object")
                             .expect("got member expression with property but without object");
 
-                        let mut next_step = step_from_node(step.path.clone(), object);
-                        let content = std::fs::read(&step.path).unwrap();
-                        let property_name = node.utf8_text(&content).unwrap();
+                        let next_step = step_from_node(step.path.clone(), object);
+                        // let content = std::fs::read(&step.path).unwrap();
+                        // let property_name = node.utf8_text(&content).unwrap();
 
-                        next_step.context = StepContext::FindMember(property_name.to_string());
+                        // next_step.context = StepContext::FindAssignment(property_name.to_string());
 
                         return Ok(Some(vec![vec![next_step]]));
                     }
@@ -360,11 +453,25 @@ impl Tracer for SolidityTracer {
                     bail!("failed to get parameter index");
                 };
 
-                let fn_ident = fn_def.child_by_field_name("name").unwrap();
-                let mut fn_step = step_from_node(step.path.clone(), fn_ident);
-                fn_step.context = StepContext::FindReference(parameter_index);
+                match fn_def.kind() {
+                    "function_definition" => {
+                        let fn_ident = fn_def.child_by_field_name("name").unwrap();
+                        let mut fn_step = step_from_node(step.path.clone(), fn_ident);
+                        fn_step.context = StepContext::FindReference(parameter_index);
 
-                Ok(Some(vec![vec![fn_step]]))
+                        Ok(Some(vec![vec![fn_step]]))
+                    }
+                    "constructor_definition" => {
+                        let fn_ident = fn_def.parent().unwrap();
+                        let mut fn_step = step_from_node(step.path.clone(), fn_ident);
+                        fn_step.context = StepContext::FindReference(parameter_index);
+
+                        Ok(Some(vec![vec![fn_step]]))
+                    }
+                    kind => {
+                        todo!("got fn def kind: {}", kind);
+                    }
+                }
             }
             ("identifier", "function_definition", StepContext::FindReference(..)) => {
                 dbg!("got function definition with find reference context, finding references");

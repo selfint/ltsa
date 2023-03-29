@@ -46,15 +46,24 @@ async fn main() {
                 property: (identifier) @prop
                 (#match? @prop "sender")
             ) @pub
-            (contract_declaration
-                body: (contract_body
-                    (state_variable_declaration
-                        name: (identifier) @pub
-                    )
-                )
-            )
             ]
             "#,
+            // r#"
+            // [(member_expression
+            //     object: (identifier) @obj
+            //     (#match? @obj "msg")
+            //     property: (identifier) @prop
+            //     (#match? @prop "sender")
+            // ) @pub
+            // (contract_declaration
+            //     body: (contract_body
+            //         (state_variable_declaration
+            //             name: (identifier) @pub
+            //         )
+            //     )
+            // )
+            // ]
+            // "#,
         )
         .unwrap(),
         2,
