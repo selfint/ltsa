@@ -1,6 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{collections::HashSet, path::PathBuf};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct StepPosition {
@@ -41,23 +41,26 @@ impl ToHtml for Step {
                 continue;
             }
 
-            let mut new_line = line.to_string();
+            let mut new_line = format!("{i: >5} | {}", line);
 
             if i == self.end.line {
-                new_line.insert_str(self.end.character, "</mark>")
+                new_line.insert_str(self.end.character + 8, "</mark>")
             }
             if i == self.start.line {
-                new_line.insert_str(self.start.character, "<mark>")
+                new_line.insert_str(self.start.character + 8, "<mark>")
             }
 
             new_lines.push(new_line);
         }
 
         let new_lines = new_lines.join("\n");
+        let style = r#"style="
+                        outline-style: solid;
+                        outline-color: black;
+                        white-space: pre-wrap;
+                        ""#;
 
-        Ok(format!(
-            r#"<pre style="outline-style: solid; outline-color: black; white-space: pre-wrap">{new_lines}</pre>"#
-        ))
+        Ok(format!(r#"<pre {style}>{new_lines}</pre>"#))
     }
 }
 
@@ -71,11 +74,17 @@ impl ToHtml for Steps {
                 let binding = s.path.clone();
                 let path = binding.file_name().unwrap().to_str().unwrap();
                 let s = s.to_html()?;
+                let path_link = format!(
+                    r##"<a href="#" onclick="return show('{path}');">
+                        {path}
+                    </a>"##
+                );
 
                 Ok(format!(
-                    r#"<div style="outline-style: solid; outline-color: black">
-                        <h2><b>Step: {i}</b></h2>
-                        <h3><b>Path: </b>{path}</h2>
+                    r#"<div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>Step: {i} | {path_link}</h2>
+                        </div>
                         {s}
                     </div>"#,
                 ))
@@ -86,46 +95,26 @@ impl ToHtml for Steps {
     }
 }
 
-impl ToHtml for Stacktraces {
-    fn to_html(&self) -> Result<String> {
-        let stacktraces_html = self
-            .stacktraces
-            .iter()
-            .map(|s| s.to_html())
-            .collect::<Result<Vec<_>>>()?;
-
-        let stacktraces = stacktraces_html
-            .iter()
-            .enumerate()
-            .map(|(i, s)| {
-                format!(
-                    r#"<div style="outline-style: solid; outline-color: black"><h1><b>Stacktrace: {i}</b></h1>{s}</div>"#,
-                )
-            })
-            .collect::<Vec<_>>();
-
-        Ok(stacktraces.join(""))
-    }
-}
-
-struct Page(Stacktraces);
+struct Page(Vec<Steps>);
 
 impl ToHtml for Page {
     fn to_html(&self) -> Result<String> {
-        let stacktraces = self
+        let stacktraces_html = self
             .0
-            .stacktraces
             .iter()
             .enumerate()
             .map(|(i, s)| {
                 let s = s.to_html()?;
                 Ok(format!(
-                    r#"<div style="outline-style: solid; outline-color: black"><h1><b>Stacktrace: {i}</b></h1>{s}</div>"#,
+                    r#"<div>
+                        <h1>Stacktrace: {i}</h1>
+                        {s}
+                    </div>"#
                 ))
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let set_pages_map = stacktraces
+        let set_stacktrace_pages = stacktraces_html
             .iter()
             .enumerate()
             .map(|(i, s)| {
@@ -135,9 +124,45 @@ impl ToHtml for Page {
             .collect::<Vec<_>>()
             .join("\n");
 
-        let links = (0..stacktraces.len())
+        let stacktrace_links = (0..stacktraces_html.len())
             .map(|i| {
                 format!(r##"<a href="#" onclick="return show({i});">Show stacktrace {i}</a>"##)
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let step_paths = self
+            .0
+            .iter()
+            .flat_map(|stacktrace| stacktrace.steps.iter().map(|s| s.path.clone()))
+            .collect::<HashSet<PathBuf>>();
+
+        let set_file_pages = step_paths
+            .iter()
+            .map(|p| {
+                let content = String::from_utf8(std::fs::read(p)?)?.replace('`', r#"\`"#);
+                let filename = p.file_name().unwrap().to_str().unwrap();
+                let content_html = format!(
+                    r#"
+                    <h1>File: {filename}</h1>
+                    <pre>{content}</pre>
+                "#
+                );
+
+                Ok(format!(
+                    r#"pagesMap.set("{filename}", String.raw`{content_html}`)"#
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?
+            .join("\n");
+
+        let file_pages_links = step_paths
+            .iter()
+            .map(|p| {
+                let filename = p.file_name().unwrap().to_str().unwrap();
+                format!(
+                    r##"<a href="#" onclick="return show('{filename}');">Show file {filename}</a>"##
+                )
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -145,22 +170,27 @@ impl ToHtml for Page {
         Ok(format!(
             r###"
             <html>
-                <body>
-                    <nav>
-                        {links}
-                    </nav>
-        
-                    <div id="content">tesfdsafdsaf</div>
-                    
+                <head>
                     <script>
                         const pagesMap = new Map();
-                        {set_pages_map}
+                        {set_stacktrace_pages}
+                        {set_file_pages}
 
                         function show(index) {{
                             document.querySelector("#content").innerHTML = pagesMap.get(index);
                             return false;
                         }}
                     </script>
+                </head>
+                <body>
+                    <nav>
+                        <h2>Pages</h2>
+                        {stacktrace_links}
+                        |
+                        {file_pages_links}
+                    </nav>
+                    
+                    <div id="content">No page selected</div>
                 </body>
             </html>
             "###,
@@ -178,7 +208,7 @@ fn main() -> Result<()> {
 
     let stacktraces: Stacktraces = serde_json::from_str(&content)?;
 
-    let page = Page(stacktraces).to_html()?;
+    let page = Page(stacktraces.stacktraces).to_html()?;
 
     println!("{}", page);
 
