@@ -21,6 +21,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: "generate_viz"
     - name: Install solc
       run: |
         sudo add-apt-repository ppa:ethereum/ethereum
