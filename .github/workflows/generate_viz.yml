@@ -10,6 +10,7 @@ on:
           - "tools/scanexr/tests/solidity/contract"
           - "tools/scanexr/tests/solidity/contract2"
           - "tools/scanexr/tests/solidity/contract3"
+          - "tools/scanexr/tests/solidity/contract4"
 
 env:
   CARGO_TERM_COLOR: always
