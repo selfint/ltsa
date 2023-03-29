@@ -1,9 +1,12 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use jsonrpc::{
     client::Client as JsonRpcClient,
-    types::{JsonRpcError},
+    types::{JsonRpcError, Notification},
 };
-use lsp_types::{notification::Notification as LspNotification, request::Request as LspRequest};
+use lsp_types::{
+    notification::Notification as LspNotification, request::Request as LspRequest,
+    PublishDiagnosticsParams,
+};
 use serde_json::Value;
 use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
@@ -26,7 +29,30 @@ impl Client {
         let (jsonrpc_client_tx, jsonrpc_client_rx) = unbounded_channel();
 
         Self {
-            jsonrpc_client: JsonRpcClient::new(jsonrpc_client_tx, server_rx),
+            jsonrpc_client: JsonRpcClient::with_handler(
+                jsonrpc_client_tx,
+                server_rx,
+                |notification| -> Result<()> {
+                    //
+                    let diagnostics: Notification<PublishDiagnosticsParams> =
+                        serde_json::from_value(notification)?;
+                    let diagnostics = diagnostics
+                        .params
+                        .ok_or_else(|| anyhow!("got diagnostics without params"))?;
+
+                    eprintln!(
+                        "Got diagnostics from server:\npath: {}\ndiagnostics: {:#?}",
+                        diagnostics.uri,
+                        diagnostics
+                            .diagnostics
+                            .iter()
+                            .map(|d| { d.message.to_string() })
+                            .collect::<Vec<_>>()
+                    );
+
+                    Ok(())
+                },
+            ),
             encoder_handle: tokio::spawn(Client::lsp_encode(jsonrpc_client_rx, client_tx)),
         }
     }
