@@ -164,7 +164,7 @@ impl ToHtml for Page {
                 let content_html = format!(
                     r#"
                     <h1>File: {filename}</h1>
-                    <pre>{content}</pre>
+                    <pre style="white-space: pre-wrap";>{content}</pre>
                 "#
                 );
 
