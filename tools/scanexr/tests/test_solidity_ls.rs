@@ -2,7 +2,6 @@ use scanexr::{
     language_provider::LspProvider, languages::solidity::SolidityLs, test_utils::display_locations,
     utils::visit_dirs,
 };
-use tempfile::{tempdir, TempDir};
 
 #[tokio::test]
 async fn test_solidity() {
