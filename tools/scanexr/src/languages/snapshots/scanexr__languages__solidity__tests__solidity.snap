@@ -1,0 +1,44 @@
+---
+source: tools/scanexr/src/languages/solidity.rs
+expression: snapshot
+---
+
+--- input ---
+
+contract.sol
+#@#
+contract Contract {
+    function withdraw() public {
+        uint bal = balances[msg.sender];
+        require(bal > 0);
+
+        address target = msg.sender;
+             // ^^^^^^ definition
+
+        (bool sent, ) = target.call{value: bal}("");
+                     // ^^^^^^ start
+        balances[msg.sender] = 0;
+    }
+}
+        
+
+--- output ---
+contract.sol
+#@#
+
+contract Contract {
+    function withdraw() public {
+        uint bal = balances[msg.sender];
+        require(bal > 0);
+
+        address target = msg.sender;
+             // ^^^^^^ definition
+
+        (bool sent, ) = target.call{value: bal}("");
+                        ^^^^^^^ Meta: [Start, GotoDefinition]
+                     // ^^^^^^ start
+        balances[msg.sender] = 0;
+    }
+}
+        
+            
