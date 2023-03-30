@@ -202,26 +202,24 @@ impl LanguageProvider for Solidity {
             todo!("when does this happen?")
         };
 
-        let kinds = breadcrumbs.iter().map(|n| n.kind()).collect::<Vec<_>>();
+        let breadcrumbs_ = breadcrumbs.iter().map(|n| n.kind()).collect::<Vec<_>>();
 
         #[cfg(test)]
-        dbg!(&kinds);
+        dbg!(&breadcrumbs_);
 
         match (
             state.pop().expect("tried to pop empty stack"),
-            kinds.as_slice(),
-            breadcrumbs.as_slice(),
+            breadcrumbs_.as_slice(),
             definitions,
             references,
         ) {
-            (StepMeta::Start, ["identifier", "member_expression", ..], _, _, _) => Ok(vec![(
-                location.clone(),
+            (StepMeta::Start, ["identifier", "member_expression", ..], _, _) => Ok(vec![(
+                location,
                 vec![StepMeta::Start, StepMeta::GotoDefinition],
             )]),
             (
                 StepMeta::GotoDefinition,
                 ["identifier", "member_expression", ..],
-                _,
                 Ok(definitions),
                 _,
             ) => Ok(definitions
