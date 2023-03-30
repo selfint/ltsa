@@ -1,8 +1,8 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use lsp_types::{Location, Url};
-use tree_sitter::{Node, Point, Tree};
+use tree_sitter::{Language, Node, Point, Tree};
 
 use crate::{Convert, Converter};
 
@@ -51,16 +51,27 @@ pub trait LanguageProvider {
     type State;
     type LspProvider: LspProvider;
 
-    fn get_tree(&self, location: &Location) -> Result<Tree>;
-
+    fn get_language(&self) -> Language;
     fn initial_state(&self) -> Self::State;
-
     fn get_next_steps(
         &self,
         step: (Location, Self::State),
         definitions: Result<Vec<Location>>,
         references: Result<Vec<Location>>,
     ) -> Result<Vec<(Location, Self::State)>>;
+
+    fn get_tree(&self, location: &Location) -> Result<Tree> {
+        let mut parser = tree_sitter::Parser::new();
+        parser
+            .set_language(self.get_language())
+            .context("failed to set language")?;
+
+        let content =
+            String::from_utf8(std::fs::read(location.uri.to_file_path().unwrap()).unwrap())
+                .unwrap();
+
+        parser.parse(content, None).context("failed to parse text")
+    }
 }
 
 #[async_recursion]

@@ -181,6 +181,10 @@ impl LanguageProvider for Solidity {
     type State = Vec<StepMeta>;
     type LspProvider = SolidityLs;
 
+    fn get_language(&self) -> tree_sitter::Language {
+        tree_sitter_solidity::language()
+    }
+
     fn initial_state(&self) -> Self::State {
         vec![StepMeta::Start]
     }
@@ -228,19 +232,6 @@ impl LanguageProvider for Solidity {
                 .collect()),
             _ => todo!(),
         }
-    }
-
-    fn get_tree(&self, location: &Location) -> Result<Tree> {
-        let mut parser = tree_sitter::Parser::new();
-        parser
-            .set_language(tree_sitter_solidity::language())
-            .context("failed to set language")?;
-
-        let content =
-            String::from_utf8(std::fs::read(location.uri.to_file_path().unwrap()).unwrap())
-                .unwrap();
-
-        parser.parse(content, None).context("failed to parse text")
     }
 }
 
