@@ -120,7 +120,7 @@ impl LspProvider for SolidityLs {
             0,
         );
 
-        let fn_call_steps = {
+        let call_locations = {
             let language = tree_sitter_solidity::language();
 
             let mut locations = vec![];
@@ -152,15 +152,15 @@ impl LspProvider for SolidityLs {
         };
 
         let mut references = vec![];
-        for fn_call_step in fn_call_steps {
-            let Ok(definitions) = self.find_definitions(location).await
+        for call_location in call_locations {
+            let Ok(definitions) = self.find_definitions(&call_location).await
             else {
                 continue;
             };
 
             for definition in definitions {
                 if &definition == location {
-                    references.push(fn_call_step.clone());
+                    references.push(call_location.clone());
                 }
             }
         }
