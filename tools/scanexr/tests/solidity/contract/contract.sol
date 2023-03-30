@@ -39,13 +39,16 @@ contract EtherStore {
 
     function getSender2() private view returns (address) {
         return msg.sender;
+        /*     ^^^^^^^^^^ definition */
     }
 
     function getSender() private view returns (address) {
         if (false) {
             return foo(0x0000000000000000000000000000000000000000, msg.sender);
+            /*                                                     ^^^^^^^^^^ definition */
         } else if (false) {
             return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+            /*                                                      ^^^^^^^^^^ definition */
         }
 
         return getSender2();
