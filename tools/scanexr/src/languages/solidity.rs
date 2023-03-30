@@ -19,7 +19,7 @@ use tokio::{
 use tree_sitter::Query;
 
 use crate::{
-    language_provider::{get_breadcrumbs, LanguageProvider, LspProvider},
+    language_provider::{get_breadcrumbs, get_node_location, LanguageProvider, LspProvider},
     utils::get_query_results,
     Convert, Converter,
 };
@@ -175,6 +175,8 @@ pub struct Solidity;
 pub enum StepMeta {
     Start,
     GotoDefinition,
+    GotoArgument(usize),
+    GotoReference,
 }
 
 impl LanguageProvider for Solidity {
@@ -212,22 +214,71 @@ impl LanguageProvider for Solidity {
         match (
             state.pop().expect("tried to pop empty stack"),
             breadcrumbs_.as_slice(),
+            breadcrumbs.as_slice(),
             definitions,
             references,
         ) {
-            (StepMeta::Start, ["identifier", "member_expression", ..], _, _) => Ok(vec![(
+            (StepMeta::Start, ["identifier", "member_expression", ..], _, _, _) => Ok(vec![(
                 location,
                 vec![StepMeta::Start, StepMeta::GotoDefinition],
             )]),
             (
                 StepMeta::GotoDefinition,
                 ["identifier", "member_expression", ..],
+                _,
                 Ok(definitions),
                 _,
             ) => Ok(definitions
                 .into_iter()
                 .map(|d| (d, state.clone()))
                 .collect()),
+            (
+                StepMeta::Start,
+                [_, "parameter", "function_definition"],
+                [_, parameter, function_definition],
+                _,
+                _,
+            ) => Ok(vec![(
+                get_node_location(
+                    location.uri,
+                    &function_definition.child_by_field_name("name").unwrap(),
+                ),
+                vec![
+                    StepMeta::Start,
+                    StepMeta::GotoArgument({
+                        let mut cursor = function_definition.walk();
+                        let index = function_definition
+                            .named_children(&mut cursor)
+                            .position(|p| &p == parameter)
+                            .unwrap();
+
+                        index
+                    }),
+                    StepMeta::GotoReference,
+                ],
+            )]),
+            (
+                StepMeta::GotoReference,
+                ["identifier", "function_definition", ..],
+                _,
+                _,
+                Ok(references),
+            ) => Ok(references.into_iter().map(|d| (d, state.clone())).collect()),
+            (
+                StepMeta::GotoArgument(index),
+                ["identifier", "call_expression", ..],
+                [_, call_expression],
+                _,
+                _,
+            ) => {
+                let mut cursor = call_expression.walk();
+                let arg = call_expression
+                    .named_children(&mut cursor)
+                    .filter(|a| a.kind() == "call_argument")
+                    .nth(index)
+                    .expect("failed to go to argument");
+                Ok(vec![(get_node_location(location.uri, &arg), state.clone())])
+            }
             _ => todo!(),
         }
     }
