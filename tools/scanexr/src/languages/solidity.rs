@@ -16,7 +16,7 @@ use tokio::{
     process::{Child, Command},
     task::JoinHandle,
 };
-use tree_sitter::{Query, Tree};
+use tree_sitter::{Query};
 
 use crate::{
     language_provider::{get_breadcrumbs, LanguageProvider, LspProvider},
