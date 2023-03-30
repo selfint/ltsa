@@ -19,7 +19,7 @@ use tokio::{
 use tree_sitter::{Query, Tree};
 
 use crate::{
-    language_provider::{get_breadcrumbs, get_node_location, LanguageProvider, LspProvider},
+    language_provider::{get_breadcrumbs, LanguageProvider, LspProvider},
     utils::get_query_results,
     Convert, Converter,
 };

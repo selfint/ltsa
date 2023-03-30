@@ -58,7 +58,7 @@ async fn _test_solidity() {
         .notify::<Initialized>(InitializedParams {})
         .unwrap();
 
-    let pub_query = (
+    let _pub_query = (
         Query::new(
             tree_sitter_solidity::language(),
             r#"
@@ -74,7 +74,7 @@ async fn _test_solidity() {
         2,
     );
 
-    let hacky_query = (
+    let _hacky_query = (
         Query::new(
             tree_sitter_solidity::language(),
             r#"

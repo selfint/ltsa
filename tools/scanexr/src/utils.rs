@@ -1,24 +1,24 @@
-use std::fmt::Debug;
+
 use std::fs::DirEntry;
 use std::path::Path;
-use std::path::PathBuf;
 
-use anyhow::Context;
-use anyhow::Result;
-use lsp_client::client::Client;
-use lsp_types::request::GotoDeclarationParams;
-use lsp_types::request::GotoDefinition;
-use lsp_types::GotoDefinitionResponse;
-use lsp_types::Location;
-use lsp_types::PartialResultParams;
-use lsp_types::TextDocumentPositionParams;
-use lsp_types::Url;
-use lsp_types::WorkDoneProgressParams;
-use tree_sitter::Language;
+
+
+
+
+
+
+
+
+
+
+
+
+
 use tree_sitter::Node;
 use tree_sitter::Query;
 use tree_sitter::QueryCursor;
-use tree_sitter::Tree;
+
 
 pub fn get_query_results<'a>(
     text: &str,
