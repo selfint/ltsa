@@ -67,7 +67,7 @@ pub mod test_utils {
                 new_lines.push(
                     " ".repeat(location.range.start.character as usize)
                         + &"^".repeat(
-                            (location.range.end.character - location.range.start.character + 1)
+                            (location.range.end.character - location.range.start.character)
                                 as usize,
                         )
                         + &format!(" Meta: {:?}", meta),
@@ -108,7 +108,7 @@ pub mod test_utils {
             for (i, line) in content.lines().enumerate() {
                 if line.contains("^ start") {
                     let start_start = line.find('^').unwrap();
-                    let start_end = line.find("^ start").unwrap();
+                    let start_end = line.find("^ start").unwrap() + 1;
                     assert!(start.is_none(), "found multiple start locations");
                     start = Some(Location::new(
                         Url::from_file_path(&filepath).unwrap(),
@@ -127,7 +127,7 @@ pub mod test_utils {
 
                 if line.contains("^ definition") {
                     let definition_start = line.find('^').unwrap();
-                    let definition_end = line.find("^ definition").unwrap();
+                    let definition_end = line.find("^ definition").unwrap() + 1;
                     let definition = Location::new(
                         Url::from_file_path(&filepath).unwrap(),
                         Range {
@@ -147,7 +147,7 @@ pub mod test_utils {
 
                 if line.contains("^ reference") {
                     let reference_start = line.find('^').unwrap();
-                    let reference_end_end = line.find("^ reference").unwrap();
+                    let reference_end_end = line.find("^ reference").unwrap() + 1;
                     let reference = Location::new(
                         Url::from_file_path(&filepath).unwrap(),
                         Range {
