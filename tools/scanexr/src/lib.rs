@@ -44,7 +44,7 @@ impl Convert<&Url, PathBuf> for Converter {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "test-utils")]
 pub mod test_utils {
     use std::fmt::Debug;
 
