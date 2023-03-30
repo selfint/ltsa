@@ -1,7 +1,10 @@
 use std::process::Stdio;
 
 use lsp_types::{notification::*, request::*, *};
-use scanexr::{language_provider::LspProvider, languages::solidity::SolidityLs, utils::visit_dirs};
+use scanexr::{
+    language_provider::LspProvider, languages::solidity::SolidityLs, test_utils::display_locations,
+    utils::visit_dirs,
+};
 use tempfile::{tempdir, TempDir};
 use tokio::process::{Child, Command};
 use tree_sitter::Query;
@@ -37,16 +40,14 @@ async fn _test_solidity() {
         r#"
 contract.sol
 #@#
+pragma solidity ^0.8.19;
+
 contract Contract {
     function withdraw() public {
-        uint bal = balances[msg.sender];
-        require(bal > 0);
-
         address target = msg.sender;
 
-        (bool sent, ) = target.call{value: bal}("");
+        (bool sent, ) = target.call{value: 1}("");
                      // ^^^^^^ start
-        balances[msg.sender] = 0;
     }
 }
         "#,
@@ -64,4 +65,26 @@ contract Contract {
         .find_definitions(&location)
         .await
         .expect("failed to find definition");
+
+    let definitions = definitions.into_iter().map(|d| (d, ())).collect();
+
+    insta::assert_snapshot!(display_locations::<()>(definitions),
+        @r###"
+    contract.sol
+    #@#
+
+    pragma solidity ^0.8.19;
+
+    contract Contract {
+        function withdraw() public {
+            address target = msg.sender;
+                    ^^^^^^ Meta: ()
+
+            (bool sent, ) = target.call{value: 1}("");
+                         // ^^^^^^ start
+        }
+    }
+            
+    "###
+    );
 }
