@@ -59,7 +59,7 @@ pub trait LanguageProvider {
 
     fn get_next_steps(
         &self,
-        step: &(Location, Self::State),
+        step: (Location, Self::State),
         definitions: Result<Vec<Location>>,
         references: Result<Vec<Location>>,
     ) -> Result<Vec<(Location, Self::State)>>;
@@ -69,12 +69,12 @@ pub trait LanguageProvider {
 pub async fn find_paths<L, C, S>(
     strategy: &S,
     lsp_provider: &S::LspProvider,
-    start: &(Location, S::State),
+    start: (Location, S::State),
     stop_at: &[Location],
 ) -> Result<Vec<Vec<Location>>>
 where
     S: LanguageProvider + Sync + Send,
-    S::State: Sync + Send,
+    S::State: Sync + Send + Clone,
     S::LspProvider: Sync,
 {
     if stop_at.contains(&start.0) {
@@ -83,11 +83,11 @@ where
 
     let definitions = lsp_provider.find_definitions(&start.0).await;
     let references = lsp_provider.find_references(&start.0).await;
-    let next_steps = strategy.get_next_steps(start, definitions, references)?;
+    let next_steps = strategy.get_next_steps(start.clone(), definitions, references)?;
 
     let mut paths = vec![];
     for next_step in next_steps {
-        let next_paths = find_paths::<L, C, S>(strategy, lsp_provider, &next_step, stop_at).await?;
+        let next_paths = find_paths::<L, C, S>(strategy, lsp_provider, next_step, stop_at).await?;
 
         for mut next_path in next_paths {
             next_path.insert(0, start.0.clone());

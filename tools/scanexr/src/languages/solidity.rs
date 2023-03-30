@@ -171,7 +171,7 @@ impl LspProvider for SolidityLs {
 
 pub struct Solidity;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum StepMeta {
     Start,
     GotoDefinition,
@@ -187,18 +187,18 @@ impl LanguageProvider for Solidity {
 
     fn get_next_steps(
         &self,
-        step: &(Location, Self::State),
+        step: (Location, Self::State),
         definitions: Result<Vec<Location>>,
         references: Result<Vec<Location>>,
     ) -> Result<Vec<(Location, Self::State)>> {
         #[cfg(test)]
-        eprintln!("{}", crate::test_utils::display_location(step));
+        eprintln!("{}", crate::test_utils::display_location(&step));
 
-        let (location, state) = step;
-        let tree = self.get_tree(location)?;
+        let (location, mut state) = step;
+        let tree = self.get_tree(&location)?;
         let root = tree.root_node();
 
-        let Some(breadcrumbs) = get_breadcrumbs(root, location) else {
+        let Some(breadcrumbs) = get_breadcrumbs(root, &location) else {
             todo!("when does this happen?")
         };
 
@@ -208,17 +208,26 @@ impl LanguageProvider for Solidity {
         dbg!(&kinds);
 
         match (
-            state.last().unwrap(),
+            state.pop().expect("tried to pop empty stack"),
             kinds.as_slice(),
             breadcrumbs.as_slice(),
+            definitions,
+            references,
         ) {
-            (StepMeta::Start, ["identifier", "member_expression", ..], [ident, ..]) => {
-                let location = get_node_location(location.uri.clone(), ident);
-                Ok(vec![(
-                    location,
-                    vec![StepMeta::Start, StepMeta::GotoDefinition],
-                )])
-            }
+            (StepMeta::Start, ["identifier", "member_expression", ..], _, _, _) => Ok(vec![(
+                location.clone(),
+                vec![StepMeta::Start, StepMeta::GotoDefinition],
+            )]),
+            (
+                StepMeta::GotoDefinition,
+                ["identifier", "member_expression", ..],
+                _,
+                Ok(definitions),
+                _,
+            ) => Ok(definitions
+                .into_iter()
+                .map(|d| (d, state.clone()))
+                .collect()),
             _ => todo!(),
         }
     }
@@ -244,17 +253,13 @@ mod tests {
     use crate::test_utils::setup_test_dir;
 
     macro_rules! snapshot {
-        ($input:literal) => {
+        ($state:expr, $input:literal) => {
             let (_root_dir, location, definitions, references) = setup_test_dir($input);
 
             let solidity = Solidity;
 
             let next_steps = solidity
-                .get_next_steps(
-                    &(location, solidity.initial_state()),
-                    Ok(definitions),
-                    Ok(references),
-                )
+                .get_next_steps((location, $state), Ok(definitions), Ok(references))
                 .expect("failed");
 
             let next_steps = display_locations(next_steps);
@@ -276,6 +281,28 @@ mod tests {
     #[test]
     fn test_solidity() {
         snapshot!(
+            Solidity.initial_state(),
+            r#"
+contract.sol
+#@#
+contract Contract {
+    function withdraw() public {
+        uint bal = balances[msg.sender];
+        require(bal > 0);
+
+        address target = msg.sender;
+             // ^^^^^^ definition
+
+        (bool sent, ) = target.call{value: bal}("");
+                     // ^^^^^^ start
+        balances[msg.sender] = 0;
+    }
+}
+        "#
+        );
+
+        snapshot!(
+            vec![StepMeta::Start, StepMeta::GotoDefinition],
             r#"
 contract.sol
 #@#
