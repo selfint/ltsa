@@ -75,7 +75,7 @@ pub trait LanguageProvider {
 }
 
 #[async_recursion]
-pub async fn find_paths<L, C, S>(
+pub async fn find_paths<S>(
     strategy: &S,
     lsp_provider: &S::LspProvider,
     start: (Location, S::State),
@@ -96,7 +96,7 @@ where
 
     let mut paths = vec![];
     for next_step in next_steps {
-        let next_paths = find_paths::<L, C, S>(strategy, lsp_provider, next_step, stop_at).await?;
+        let next_paths = find_paths::<S>(strategy, lsp_provider, next_step, stop_at).await?;
 
         for mut next_path in next_paths {
             next_path.insert(0, start.0.clone());

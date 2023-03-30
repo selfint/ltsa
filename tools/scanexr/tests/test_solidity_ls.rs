@@ -1,5 +1,7 @@
 use scanexr::{
-    language_provider::LspProvider, languages::solidity::SolidityLs, test_utils::display_locations,
+    language_provider::{find_paths, LanguageProvider, LspProvider},
+    languages::solidity::{Solidity, SolidityLs},
+    test_utils::{display_locations, setup_test_dir},
     utils::visit_dirs,
 };
 
@@ -131,4 +133,49 @@ contract Contract {
 }
         "#
     );
+}
+
+#[tokio::test]
+async fn test_contract() {
+    let contract = include_str!("solidity/contract/contract.sol");
+    let other_file = include_str!("solidity/contract/other_file.sol");
+    let input = format!(
+        r#"
+contract.sol
+#@#
+{}
+---
+other_file.sol
+#@#
+{}
+    "#,
+        contract, other_file
+    );
+
+    let (root_dir, start, stop_at, _) = setup_test_dir(&input);
+    let mut project_files = vec![];
+    visit_dirs(root_dir.path(), &mut |f| project_files.push(f.path()))
+        .expect("failed to get project files");
+    let lsp = SolidityLs::new(root_dir.path(), project_files)
+        .await
+        .expect("failed to start solidity ls");
+    let strategy = Solidity;
+
+    let paths = find_paths(&strategy, &lsp, (start, strategy.initial_state()), &stop_at)
+        .await
+        .expect("failed to find paths");
+
+    let path_strings = paths
+        .into_iter()
+        .enumerate()
+        .map(|(i, path)| {
+            let path = path.into_iter().map(|p| (p, ())).collect();
+            format!("Path: {i}\n{}", display_locations(path))
+        })
+        .collect::<Vec<_>>()
+        .join("\n---\n");
+
+    let snapshot = format!("input:\n{input}\noutput:{path_strings}");
+
+    insta::assert_snapshot!(snapshot);
 }

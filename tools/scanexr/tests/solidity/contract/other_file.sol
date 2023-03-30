@@ -7,5 +7,6 @@ function other(address a, uint b) pure returns (uint, address) {
 
 function hacky(address target, uint amount) {
     (bool sent, ) = target.call{value: amount}("");
+    /*              ^^^^^^ start */
     require(sent, "Failed to send Ether");
 }

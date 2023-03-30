@@ -195,7 +195,6 @@ impl LanguageProvider for Solidity {
         definitions: Result<Vec<Location>>,
         references: Result<Vec<Location>>,
     ) -> Result<Vec<(Location, Self::State)>> {
-        #[cfg(test)]
         eprintln!("{}", crate::test_utils::display_location(&step));
 
         let (location, mut state) = step;
@@ -208,7 +207,6 @@ impl LanguageProvider for Solidity {
 
         let breadcrumbs_ = breadcrumbs.iter().map(|n| n.kind()).collect::<Vec<_>>();
 
-        #[cfg(test)]
         dbg!(&breadcrumbs_);
 
         match (
