@@ -1,0 +1,36 @@
+---
+source: tools/scanexr/tests/test_solidity_ls.rs
+expression: snapshot
+---
+
+### input ###
+
+contract.sol
+#@#
+pragma solidity ^0.8.19;
+
+contract Contract {
+    function withdraw() public {
+        address target = msg.sender;
+
+        (bool sent, ) = target.call{value: 1}("");
+                     // ^^^^^^ start
+    }
+}
+        
+### output ###
+contract.sol
+#@#
+
+pragma solidity ^0.8.19;
+
+contract Contract {
+    function withdraw() public {
+        address target = msg.sender;
+                ^^^^^^ Meta: ()
+
+        (bool sent, ) = target.call{value: 1}("");
+                     // ^^^^^^ start
+    }
+}
+        
