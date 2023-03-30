@@ -45,7 +45,12 @@ impl Client {
                         diagnostics
                             .diagnostics
                             .iter()
-                            .map(|d| { d.message.to_string() })
+                            .map(|d| {
+                                format!(
+                                    "[{}:{}] {}",
+                                    d.range.start.line, d.range.start.character, d.message
+                                )
+                            })
                             .collect::<Vec<_>>()
                     );
 
