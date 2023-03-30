@@ -1,34 +1,8 @@
-use std::process::Stdio;
-
-use lsp_types::{notification::*, request::*, *};
 use scanexr::{
     language_provider::LspProvider, languages::solidity::SolidityLs, test_utils::display_locations,
     utils::visit_dirs,
 };
 use tempfile::{tempdir, TempDir};
-use tokio::process::{Child, Command};
-use tree_sitter::Query;
-
-fn get_temp_dir() -> TempDir {
-    let contract = include_str!("contract/contract.sol");
-    let other_file = include_str!("contract/other_file.sol");
-
-    let temp_dir = tempdir().expect("failed to create tempdir");
-    std::fs::create_dir(temp_dir.path().join("contract")).expect("failed to create dir");
-
-    std::fs::write(
-        temp_dir.path().join("contract").join("contract.sol"),
-        contract,
-    )
-    .expect("failed to copy contract");
-    std::fs::write(
-        temp_dir.path().join("contract").join("other_file.sol"),
-        other_file,
-    )
-    .expect("failed to copy contract");
-
-    temp_dir
-}
 
 #[tokio::test]
 async fn test_solidity() {
