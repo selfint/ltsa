@@ -32,10 +32,10 @@ contract Contract {
         require(bal > 0);
 
         address target = msg.sender;
+                ^^^^^^ Meta: [Start]
              // ^^^^^^ definition
 
         (bool sent, ) = target.call{value: bal}("");
-                        ^^^^^^ Meta: [Start, GotoDefinition]
                      // ^^^^^^ start
         balances[msg.sender] = 0;
     }
