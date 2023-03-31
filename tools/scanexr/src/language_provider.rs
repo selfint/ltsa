@@ -1,8 +1,21 @@
+use std::path::{Path, PathBuf};
+
 use anyhow::{Context, Result};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use lsp_types::Location;
 use tree_sitter::{Language, Tree};
+
+#[async_trait]
+pub trait SupportedLanguage {
+    async fn find_paths(
+        &self,
+        root_dir: &Path,
+        project_files: Vec<PathBuf>,
+        start_locations: Vec<Location>,
+        stop_at: &[Location],
+    ) -> Result<Vec<Vec<Location>>>;
+}
 
 #[async_trait]
 pub trait LspProvider {

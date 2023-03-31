@@ -20,7 +20,7 @@ use tree_sitter::Query;
 
 use crate::{
     converter::{Convert, Converter},
-    language_provider::{LanguageAutomata, LspProvider},
+    language_provider::{self, LanguageAutomata, LspProvider, SupportedLanguage},
     utils::{
         get_breadcrumbs, get_named_child_index, get_node_location, get_query_results,
         get_uri_content,
@@ -441,6 +441,37 @@ impl LanguageAutomata for Solidity {
                 _ => vec![],
             },
         )
+    }
+}
+
+#[async_trait]
+impl SupportedLanguage for Solidity {
+    async fn find_paths(
+        &self,
+        root_dir: &Path,
+        project_files: Vec<PathBuf>,
+        start_locations: Vec<Location>,
+        stop_at: &[Location],
+    ) -> Result<Vec<Vec<Location>>> {
+        let lsp = SolidityLs::new(root_dir, project_files)
+            .await
+            .context("failed to start solidity ls")?;
+
+        let mut all_paths = vec![];
+        for start_location in start_locations {
+            let paths = language_provider::find_paths(
+                &Solidity,
+                &lsp,
+                start_location,
+                Solidity.initial_state(),
+                stop_at,
+            )
+            .await?;
+
+            all_paths.extend(paths);
+        }
+
+        Ok(all_paths)
     }
 }
 

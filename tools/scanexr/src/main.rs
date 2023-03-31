@@ -1,13 +1,14 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
+use async_trait::async_trait;
 use lsp_types::Location;
 use serde_json::{json, Value};
 use tree_sitter::{Parser, Query, Tree};
 
 use scanexr::{
     converter::{Convert, Converter},
-    language_provider::{self, LanguageAutomata},
+    language_provider::{self, LanguageAutomata, LspProvider, SupportedLanguage},
     languages::solidity::{Solidity, SolidityLs},
     utils::{get_node_location, get_query_results, visit_dirs},
 };
@@ -82,11 +83,34 @@ fn get_start_end(project_files: &[PathBuf]) -> Result<(Vec<Location>, Vec<Locati
     Ok((start_locations, end_locations))
 }
 
+enum SupportedLanguages {
+    Solidity,
+}
+
+impl SupportedLanguages {
+    fn get_language(&self) -> Box<impl SupportedLanguage> {
+        match self {
+            Self::Solidity => Box::new(Solidity),
+        }
+    }
+}
+
+impl From<&str> for SupportedLanguages {
+    fn from(from: &str) -> Self {
+        match from.to_lowercase().trim() {
+            "solidity" => SupportedLanguages::Solidity,
+            _ => panic!("got unsupported language: {}", from),
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let mut args = std::env::args();
     let _binary = args.next();
+    let lang: SupportedLanguages = args.next().unwrap().trim().into();
     let root_dir: PathBuf = args.next().unwrap().trim().into();
+
     let root_dir = root_dir.canonicalize().unwrap();
     let mut project_files = vec![];
     visit_dirs(root_dir.as_path(), &mut |f| project_files.push(f.path()))
@@ -94,23 +118,10 @@ async fn main() -> Result<()> {
 
     let (start_locations, _end_locations) = get_start_end(&project_files)?;
 
-    let lsp = SolidityLs::new(root_dir.as_path(), project_files)
-        .await
-        .context("failed to start solidity ls")?;
-
-    let mut all_paths = vec![];
-    for start_location in start_locations {
-        let paths = language_provider::find_paths(
-            &Solidity,
-            &lsp,
-            start_location,
-            Solidity.initial_state(),
-            &[],
-        )
+    let all_paths = lang
+        .get_language()
+        .find_paths(&root_dir, project_files, start_locations, &[])
         .await?;
-
-        all_paths.extend(paths);
-    }
 
     let mut json_stacktraces: Vec<Value> = vec![];
     for path in all_paths {
