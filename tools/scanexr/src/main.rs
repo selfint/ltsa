@@ -1,17 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use anyhow::{anyhow, Context, Result};
-use async_trait::async_trait;
-use lsp_types::Location;
-use serde_json::{json, Value};
-use tree_sitter::{Parser, Query, Tree};
-
+use anyhow::{Context, Result};
 use scanexr::{
-    converter::{Convert, Converter},
-    language_provider::{self, LanguageAutomata, LspProvider, SupportedLanguage},
-    languages::solidity::{Solidity, SolidityLs},
-    utils::{get_node_location, get_query_results, visit_dirs},
+    language_provider::SupportedLanguage, languages::solidity::Solidity, utils::visit_dirs,
 };
+use serde_json::{json, Value};
 
 enum SupportedLanguages {
     Solidity,
