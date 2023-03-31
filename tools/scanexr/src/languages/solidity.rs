@@ -538,36 +538,38 @@ mod tests {
     use crate::test_utils::setup_test_dir;
 
     macro_rules! snapshot {
-        ($state:expr, $input:literal) => {
-            let (_root_dir, location, definitions, references) = setup_test_dir($input);
+        ($name:tt, $state:expr, $input:literal) => {
+            #[test]
+            fn $name() {
+                let (_root_dir, location, definitions, references) = setup_test_dir($input);
 
-            let solidity = Solidity;
+                let solidity = Solidity;
 
-            let next_steps = solidity
-                .transition(location, $state, Ok(definitions), Ok(references))
-                .expect("failed");
+                let next_steps = solidity
+                    .transition(location, $state, Ok(definitions), Ok(references))
+                    .expect("failed");
 
-            let next_steps = display_locations(next_steps, None);
-            let snapshot = format!(
-                r#"
+                let next_steps = display_locations(next_steps, None);
+                let snapshot = format!(
+                    r#"
 --- input ---
 {}
 
 --- output ---
 {}
             "#,
-                $input, next_steps
-            );
+                    $input, next_steps
+                );
 
-            insta::assert_snapshot!(snapshot);
+                insta::assert_snapshot!(snapshot);
+            }
         };
     }
 
-    #[test]
-    fn test_solidity() {
-        snapshot!(
-            StepMeta::Start,
-            r#"
+    snapshot!(
+        test_start,
+        StepMeta::Start,
+        r#"
 contract.sol
 #@#
 contract Contract {
@@ -584,11 +586,12 @@ contract Contract {
     }
 }
         "#
-        );
+    );
 
-        snapshot!(
-            StepMeta::GotoDefinition,
-            r#"
+    snapshot!(
+        goto_definition,
+        StepMeta::GotoDefinition,
+        r#"
 contract.sol
 #@#
 contract Contract {
@@ -605,6 +608,5 @@ contract Contract {
     }
 }
         "#
-        );
-    }
+    );
 }
