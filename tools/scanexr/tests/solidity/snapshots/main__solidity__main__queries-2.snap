@@ -1,6 +1,0 @@
----
-source: tools/scanexr/tests/solidity/main.rs
-expression: node_text
----
-    (bool sent, ) = target.call{value: amount}("");
-                           ^^^^

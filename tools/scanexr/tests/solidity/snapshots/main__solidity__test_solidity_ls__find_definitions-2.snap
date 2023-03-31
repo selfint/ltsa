@@ -1,5 +1,5 @@
 ---
-source: tools/scanexr/tests/test_solidity_ls.rs
+source: tools/scanexr/tests/solidity/test_solidity_ls.rs
 expression: snapshot
 ---
 
@@ -11,13 +11,12 @@ pragma solidity ^0.8.19;
 
 contract Contract {
     function foo() public {}
-         //  ^^^ start
 
     function withdraw() public {
         address target = msg.sender;
         
         foo();
-        foo();
+    //  ^^^ start
 
         (bool sent, ) = target.call{value: 1}("");
     }
@@ -31,35 +30,13 @@ pragma solidity ^0.8.19;
 
 contract Contract {
     function foo() public {}
-         //  ^^^ start
+             ^^^ Meta: ()
 
     function withdraw() public {
         address target = msg.sender;
         
         foo();
-        ^^^ Meta: ()
-        foo();
-
-        (bool sent, ) = target.call{value: 1}("");
-    }
-}
-        
----
-contract.sol
-#@#
-
-pragma solidity ^0.8.19;
-
-contract Contract {
-    function foo() public {}
-         //  ^^^ start
-
-    function withdraw() public {
-        address target = msg.sender;
-        
-        foo();
-        foo();
-        ^^^ Meta: ()
+    //  ^^^ start
 
         (bool sent, ) = target.call{value: 1}("");
     }

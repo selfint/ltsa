@@ -137,8 +137,8 @@ contract Contract {
 
 #[tokio::test]
 async fn test_contract() {
-    let contract = include_str!("solidity/contract/contract.sol");
-    let other_file = include_str!("solidity/contract/other_file.sol");
+    let contract = include_str!("contract/contract.sol");
+    let other_file = include_str!("contract/other_file.sol");
     let input = format!(
         r#"
 contract.sol
