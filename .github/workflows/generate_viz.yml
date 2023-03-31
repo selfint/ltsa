@@ -33,7 +33,7 @@ jobs:
     - name: Build tools
       run: cargo build --release --verbose
     - name: Build viz
-      run: ./target/release/scanexr ${{ inputs.contract }} | ./target/release/viz - > viz.html
+      run: ./target/release/scanexr solidity ${{ inputs.contract }} | ./target/release/viz - > viz.html
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.2
       with:
