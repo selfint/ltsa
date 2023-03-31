@@ -35,7 +35,7 @@ contract Contract {
              // ^^^^^^ definition
 
         (bool sent, ) = target.call{value: bal}("");
-                        ^^^^^^ Meta: [Start, GotoDefinition]
+                        ^^^^^^ Meta: [Start, Resolve { anchor: None, index: None }]
                      // ^^^^^^ start
         balances[msg.sender] = 0;
     }

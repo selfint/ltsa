@@ -32,7 +32,7 @@ contract Contract {
         require(bal > 0);
 
         address target = msg.sender;
-                ^^^^^^ Meta: [Start]
+                ^^^^^^ Meta: []
              // ^^^^^^ definition
 
         (bool sent, ) = target.call{value: bal}("");

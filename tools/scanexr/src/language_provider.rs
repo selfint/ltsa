@@ -1,50 +1,14 @@
 use anyhow::{Context, Result};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
-use lsp_types::{Location, Url};
-use tree_sitter::{Language, Node, Point, Tree};
-
-use crate::{Convert, Converter};
+use lsp_types::Location;
+use tree_sitter::Language;
+use tree_sitter::Tree;
 
 #[async_trait]
 pub trait LspProvider {
     async fn find_definitions(&self, location: &Location) -> Result<Vec<Location>>;
     async fn find_references(&self, location: &Location) -> Result<Vec<Location>>;
-}
-
-pub fn get_node_location(uri: Url, node: &Node) -> Location {
-    Location {
-        uri,
-        range: lsp_types::Range {
-            start: Converter::convert(node.start_position()),
-            end: Converter::convert(node.end_position()),
-        },
-    }
-}
-
-pub fn get_location_node<'a>(root: Node<'a>, location: &Location) -> Option<Node<'a>> {
-    let start = Point {
-        row: location.range.start.line as usize,
-        column: location.range.start.character as usize,
-    };
-    let end = Point {
-        row: location.range.end.line as usize,
-        column: location.range.end.character as usize,
-    };
-
-    root.named_descendant_for_point_range(start, end)
-}
-
-pub fn get_breadcrumbs<'a>(root: Node<'a>, location: &Location) -> Option<Vec<Node<'a>>> {
-    let mut node = get_location_node(root, location)?;
-
-    let mut breadcrumbs = vec![];
-    while let Some(parent_node) = node.parent() {
-        breadcrumbs.push(node);
-        node = parent_node;
-    }
-
-    Some(breadcrumbs)
 }
 
 pub trait LanguageProvider {
