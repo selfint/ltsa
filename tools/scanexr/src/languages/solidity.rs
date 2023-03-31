@@ -178,7 +178,11 @@ pub enum StepMeta {
     GotoDefinition,
     GotoArgument(usize),
     GotoReference,
-    GotoReturnValue(Location),
+    /// Use this when a call expression needs to be resolved.
+    ///
+    /// The Location anchor is here so that if the resolved return value
+    /// is a parameter, we can return to the correct call expression
+    ResolveReturnValue(Location),
     Resolve,
 }
 
@@ -215,7 +219,7 @@ impl LanguageProvider for Solidity {
 
         eprintln!(
             "Got location:\nbreadcrumbs: {:?}\nstate: {:?}\n\n{}\n",
-            &breadcrumbs,
+            breadcrumbs.iter().map(|(k, _)| k).collect::<Vec<_>>(),
             &state,
             crate::test_utils::display_location(&location, &state, Some(5))
         );
@@ -256,22 +260,25 @@ impl LanguageProvider for Solidity {
                     Ok(references),
                 ) => references.into_iter().map(|d| (d, vec![])).collect(),
                 (
-                    StepMeta::GotoReturnValue(anchor),
+                    StepMeta::ResolveReturnValue(anchor),
                     [_, ("parameter", parameter), ("function_definition", function_definition), ..],
                     _,
                     _,
                 ) => vec![(
                     anchor,
-                    vec![StepMeta::GotoArgument({
-                        let mut cursor = function_definition.walk();
-                        let index = function_definition
-                            .named_children(&mut cursor)
-                            .filter(|p| p.kind() == "parameter")
-                            .position(|p| &p == parameter)
-                            .unwrap();
+                    vec![
+                        StepMeta::Resolve,
+                        StepMeta::GotoArgument({
+                            let mut cursor = function_definition.walk();
+                            let index = function_definition
+                                .named_children(&mut cursor)
+                                .filter(|p| p.kind() == "parameter")
+                                .position(|p| &p == parameter)
+                                .unwrap();
 
-                        index
-                    })],
+                            index
+                        }),
+                    ],
                 )],
                 (
                     StepMeta::Resolve,
@@ -284,6 +291,7 @@ impl LanguageProvider for Solidity {
                         &function_definition.child_by_field_name("name").unwrap(),
                     ),
                     vec![
+                        StepMeta::Resolve,
                         StepMeta::GotoArgument({
                             let mut cursor = function_definition.walk();
                             let index = function_definition
@@ -310,28 +318,35 @@ impl LanguageProvider for Solidity {
                         .filter(|a| a.kind() == "call_argument")
                         .nth(index)
                         .expect("failed to go to argument");
-                    vec![(
-                        get_node_location(location.uri, &arg),
-                        vec![StepMeta::Resolve],
-                    )]
+                    vec![(get_node_location(location.uri, &arg), vec![])]
                 }
                 (StepMeta::Resolve, [("call_expression", _), ..], _, _) => {
-                    vec![(location.clone(), vec![StepMeta::GotoReturnValue(location)])]
+                    vec![(
+                        location.clone(),
+                        vec![StepMeta::Resolve, StepMeta::ResolveReturnValue(location)],
+                    )]
                 }
                 (
-                    StepMeta::GotoReturnValue(anchor),
+                    StepMeta::ResolveReturnValue(anchor),
                     [("call_expression", call_expression), ..],
                     _,
                     _,
-                ) => vec![(
-                    get_node_location(
+                ) => {
+                    let function_call = get_node_location(
                         location.uri,
                         &call_expression.child_by_field_name("function").unwrap(),
-                    ),
-                    vec![StepMeta::GotoReturnValue(anchor), StepMeta::GotoDefinition],
-                )],
+                    );
+                    vec![(
+                        function_call.clone(),
+                        vec![
+                            StepMeta::ResolveReturnValue(anchor),
+                            StepMeta::ResolveReturnValue(function_call),
+                            StepMeta::GotoDefinition,
+                        ],
+                    )]
+                }
                 (
-                    StepMeta::GotoReturnValue(anchor),
+                    StepMeta::ResolveReturnValue(anchor),
                     [("identifier", _), ("function_definition", function_definition), ..],
                     _,
                     _,
@@ -345,12 +360,17 @@ impl LanguageProvider for Solidity {
                 .map(|node| {
                     (
                         get_node_location(location.uri.clone(), node),
-                        vec![StepMeta::GotoReturnValue(anchor.clone()), StepMeta::Resolve],
+                        vec![StepMeta::ResolveReturnValue(anchor.clone())],
                     )
                 })
                 .collect::<Vec<_>>(),
-                (StepMeta::Resolve, [("identifier", _), ..], _, _) => {
-                    vec![(location, vec![StepMeta::GotoDefinition])]
+                (
+                    state @ (StepMeta::Resolve | StepMeta::ResolveReturnValue(..)),
+                    [("identifier", _), ("member_expression" | "call_argument" | "return_statement", _), ..],
+                    _,
+                    _,
+                ) => {
+                    vec![(location, vec![state, StepMeta::GotoDefinition])]
                 }
                 (StepMeta::Start, _, _, _) => {
                     vec![(location, vec![StepMeta::Start, StepMeta::Resolve])]
