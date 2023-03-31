@@ -19,10 +19,12 @@ use tokio::{
 use tree_sitter::Query;
 
 use crate::{
+    converter::Convert,
+    converter::Converter,
     get_named_child_index, get_uri_content,
-    language_provider::{get_breadcrumbs, get_node_location, LanguageProvider, LspProvider},
+    language_provider::{LanguageProvider, LspProvider},
     utils::get_query_results,
-    Convert, Converter,
+    utils::{get_breadcrumbs, get_node_location},
 };
 
 pub struct SolidityLs {
