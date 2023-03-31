@@ -1,12 +1,8 @@
-use std::fs::DirEntry;
-use std::path::Path;
+use std::{fs::DirEntry, path::Path};
 
-use lsp_types::Location;
-use lsp_types::Url;
-use tree_sitter::Node;
-use tree_sitter::Point;
-use tree_sitter::Query;
-use tree_sitter::QueryCursor;
+use anyhow::{anyhow, Result};
+use lsp_types::{Location, Url};
+use tree_sitter::{Node, Point, Query, QueryCursor};
 
 use crate::converter::{Convert, Converter};
 
@@ -84,4 +80,21 @@ pub fn get_breadcrumbs<'a>(root: Node<'a>, location: &Location) -> Option<Vec<No
     }
 
     Some(breadcrumbs)
+}
+
+pub fn get_uri_content(uri: &Url) -> Result<String> {
+    Ok(String::from_utf8(std::fs::read(
+        uri.to_file_path()
+            .map_err(|_| anyhow!("failed to convert uri to file path"))?,
+    )?)?)
+}
+
+pub fn get_named_child_index<'a>(node: &Node<'a>, child: &Node<'a>) -> Option<usize> {
+    let mut cursor = node.walk();
+    let index = node
+        .named_children(&mut cursor)
+        .filter(|c| c.kind() == child.kind())
+        .position(|c| &c == child);
+
+    index
 }

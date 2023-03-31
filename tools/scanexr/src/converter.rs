@@ -1,8 +1,6 @@
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use lsp_types::Position;
-use lsp_types::Url;
+use lsp_types::{Position, Url};
 use tree_sitter::Point;
 
 pub trait Convert<From, To> {

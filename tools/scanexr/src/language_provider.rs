@@ -2,8 +2,7 @@ use anyhow::{Context, Result};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use lsp_types::Location;
-use tree_sitter::Language;
-use tree_sitter::Tree;
+use tree_sitter::{Language, Tree};
 
 #[async_trait]
 pub trait LspProvider {
