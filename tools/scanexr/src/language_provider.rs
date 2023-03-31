@@ -69,6 +69,10 @@ where
     let next_steps =
         language_provider.transition(location.clone(), stack_head, definitions, references)?;
 
+    if next_steps.is_empty() {
+        return Ok(vec![vec![location.clone()]]);
+    }
+
     let mut paths = vec![];
     for (next_location, mut pushed_items) in next_steps {
         let mut next_stack = stack.clone();

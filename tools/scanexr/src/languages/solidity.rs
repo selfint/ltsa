@@ -438,7 +438,7 @@ impl LanguageAutomata for Solidity {
                         ],
                     )]
                 }
-                _ => todo!(),
+                _ => vec![],
             },
         )
     }
