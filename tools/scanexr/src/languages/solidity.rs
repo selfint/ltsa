@@ -19,6 +19,7 @@ use tokio::{
 use tree_sitter::Query;
 
 use crate::{
+    get_uri_content,
     language_provider::{get_breadcrumbs, get_node_location, LanguageProvider, LspProvider},
     utils::get_query_results,
     Convert, Converter,
@@ -110,11 +111,11 @@ impl LspProvider for SolidityLs {
             Query::new(
                 tree_sitter_solidity::language(),
                 "(call_expression function: [
-                (identifier) @ident
-                (member_expression
-                    property: (identifier) @ident
-                )
-            ])",
+                    (identifier) @ident
+                    (member_expression
+                        property: (identifier) @ident
+                    )
+                ])",
             )
             .unwrap(),
             0,
@@ -171,13 +172,14 @@ impl LspProvider for SolidityLs {
 
 pub struct Solidity;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum StepMeta {
     Start,
     GotoDefinition,
     GotoArgument(usize),
     GotoReference,
-    GotoReturnValue,
+    GotoReturnValue(Location),
+    Resolve,
 }
 
 impl LanguageProvider for Solidity {
@@ -206,64 +208,61 @@ impl LanguageProvider for Solidity {
             todo!("when does this happen?")
         };
 
-        let breadcrumbs_ = breadcrumbs.iter().map(|n| n.kind()).collect::<Vec<_>>();
+        let breadcrumbs = breadcrumbs
+            .into_iter()
+            .map(|n| (n.kind(), n))
+            .collect::<Vec<_>>();
 
         eprintln!(
-            "Got location:\nbreadcrumbs: {:?}\n\n{}\n",
-            &breadcrumbs_,
+            "Got location:\nbreadcrumbs: {:?}\nstate: {:?}\n\n{}\n",
+            &breadcrumbs,
+            &state,
             crate::test_utils::display_location(&location, &state, Some(5))
         );
 
-        match (
-            state,
-            breadcrumbs_.as_slice(),
-            breadcrumbs.as_slice(),
-            definitions,
-            references,
-        ) {
-            (
-                StepMeta::GotoDefinition,
-                ["identifier", "variable_declaration", "variable_declaration_statement", ..],
-                [_, _, variable_declaration_statement, ..],
-                _,
-                _,
-            ) => Ok(vec![(
-                get_node_location(
-                    location.uri,
-                    &variable_declaration_statement
-                        .child_by_field_name("value")
-                        .unwrap(),
-                ),
-                vec![],
-            )]),
-            (
-                StepMeta::GotoDefinition,
-                ["identifier", "member_expression" | "call_argument" | "call_expression", ..],
-                _,
-                Ok(definitions),
-                _,
-            ) => Ok(definitions.into_iter().map(|d| (d, vec![])).collect()),
-            (
-                StepMeta::GotoReference,
-                ["identifier", "function_definition", ..],
-                _,
-                _,
-                Ok(references),
-            ) => Ok(references.into_iter().map(|d| (d, vec![])).collect()),
-            (
-                StepMeta::Start,
-                [_, "parameter", "function_definition"],
-                [_, parameter, function_definition],
-                _,
-                _,
-            ) => Ok(vec![(
-                get_node_location(
-                    location.uri,
-                    &function_definition.child_by_field_name("name").unwrap(),
-                ),
-                vec![
-                    StepMeta::Start,
-                    StepMeta::GotoArgument({
+        Ok(
+            match (state, breadcrumbs.as_slice(), definitions, references) {
+                (_, [("number_literal", _), ..], _, _) => vec![],
+                (
+                    StepMeta::Resolve,
+                    [("identifier", _), ("variable_declaration", _), ("variable_declaration_statement", variable_declaration_statement), ..],
+                    _,
+                    _,
+                ) => {
+                    vec![(
+                        get_node_location(
+                            location.uri,
+                            &variable_declaration_statement
+                                .child_by_field_name("value")
+                                .unwrap(),
+                        ),
+                        vec![StepMeta::Resolve],
+                    )]
+                }
+                (
+                    StepMeta::GotoDefinition,
+                    [("identifier", _), (
+                        "member_expression" | "call_argument" | "call_expression"
+                        | "return_statement",
+                        _,
+                    ), ..],
+                    Ok(definitions),
+                    _,
+                ) => definitions.into_iter().map(|d| (d, vec![])).collect(),
+                (
+                    StepMeta::GotoReference,
+                    [("identifier", _), ("function_definition", _), ..],
+                    _,
+                    Ok(references),
+                ) => references.into_iter().map(|d| (d, vec![])).collect(),
+                (
+                    StepMeta::GotoReturnValue(anchor),
+                    [_, ("parameter", parameter), ("function_definition", function_definition), ..],
+                    _,
+                    _,
+                ) => vec![(
+                    anchor,
+                    vec![StepMeta::GotoArgument({
                         let mut cursor = function_definition.walk();
                         let index = function_definition
                             .named_children(&mut cursor)
@@ -272,44 +271,93 @@ impl LanguageProvider for Solidity {
                             .unwrap();
 
                         index
-                    }),
-                    StepMeta::GotoReference,
-                ],
-            )]),
-            (
-                StepMeta::GotoArgument(index),
-                ["identifier", "call_expression", ..],
-                [_, call_expression, ..],
-                _,
-                _,
-            ) => {
-                let mut cursor = call_expression.walk();
-                let arg = call_expression
-                    .named_children(&mut cursor)
-                    .filter(|a| a.kind() == "call_argument")
-                    .nth(index)
-                    .expect("failed to go to argument");
-                Ok(vec![(get_node_location(location.uri, &arg), vec![])])
-            }
-            (StepMeta::Start, ["call_expression", ..], _, _, _) => Ok(vec![(
-                location,
-                vec![StepMeta::Start, StepMeta::GotoReturnValue],
-            )]),
-            (StepMeta::GotoReturnValue, ["call_expression", ..], [call_expression, ..], _, _) => {
-                Ok(vec![(
+                    })],
+                )],
+                (
+                    StepMeta::Resolve,
+                    [_, ("parameter", parameter), ("function_definition", function_definition), ..],
+                    _,
+                    _,
+                ) => vec![(
+                    get_node_location(
+                        location.uri,
+                        &function_definition.child_by_field_name("name").unwrap(),
+                    ),
+                    vec![
+                        StepMeta::GotoArgument({
+                            let mut cursor = function_definition.walk();
+                            let index = function_definition
+                                .named_children(&mut cursor)
+                                .filter(|p| p.kind() == "parameter")
+                                .position(|p| &p == parameter)
+                                .unwrap();
+
+                            index
+                        }),
+                        StepMeta::GotoReference,
+                    ],
+                )],
+                (
+                    StepMeta::GotoArgument(index),
+                    [("identifier", _), ("call_expression", call_expression), ..]
+                    | [("call_expression", call_expression), ..],
+                    _,
+                    _,
+                ) => {
+                    let mut cursor = call_expression.walk();
+                    let arg = call_expression
+                        .named_children(&mut cursor)
+                        .filter(|a| a.kind() == "call_argument")
+                        .nth(index)
+                        .expect("failed to go to argument");
+                    vec![(
+                        get_node_location(location.uri, &arg),
+                        vec![StepMeta::Resolve],
+                    )]
+                }
+                (StepMeta::Resolve, [("call_expression", _), ..], _, _) => {
+                    vec![(location.clone(), vec![StepMeta::GotoReturnValue(location)])]
+                }
+                (
+                    StepMeta::GotoReturnValue(anchor),
+                    [("call_expression", call_expression), ..],
+                    _,
+                    _,
+                ) => vec![(
                     get_node_location(
                         location.uri,
                         &call_expression.child_by_field_name("function").unwrap(),
                     ),
-                    vec![StepMeta::GotoReturnValue, StepMeta::GotoDefinition],
-                )])
-            }
-            (StepMeta::Start, ["identifier", ..], _, _, _) => Ok(vec![(
-                location,
-                vec![StepMeta::Start, StepMeta::GotoDefinition],
-            )]),
-            _ => todo!(),
-        }
+                    vec![StepMeta::GotoReturnValue(anchor), StepMeta::GotoDefinition],
+                )],
+                (
+                    StepMeta::GotoReturnValue(anchor),
+                    [("identifier", _), ("function_definition", function_definition), ..],
+                    _,
+                    _,
+                ) => get_query_results(
+                    &get_uri_content(&location.uri)?,
+                    *function_definition,
+                    &Query::new(self.get_language(), "(return_statement (_) @return)").unwrap(),
+                    0,
+                )
+                .iter()
+                .map(|node| {
+                    (
+                        get_node_location(location.uri.clone(), node),
+                        vec![StepMeta::GotoReturnValue(anchor.clone()), StepMeta::Resolve],
+                    )
+                })
+                .collect::<Vec<_>>(),
+                (StepMeta::Resolve, [("identifier", _), ..], _, _) => {
+                    vec![(location, vec![StepMeta::GotoDefinition])]
+                }
+                (StepMeta::Start, _, _, _) => {
+                    vec![(location, vec![StepMeta::Start, StepMeta::Resolve])]
+                }
+                _ => todo!(),
+            },
+        )
     }
 }
 
