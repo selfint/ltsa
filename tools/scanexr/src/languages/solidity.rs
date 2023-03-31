@@ -23,7 +23,7 @@ use crate::{
     language_provider::{self, LanguageAutomata, LspProvider, SupportedLanguage},
     utils::{
         get_breadcrumbs, get_named_child_index, get_node_location, get_query_results,
-        get_uri_content,
+        get_uri_content, parse_file,
     },
 };
 
@@ -446,6 +446,62 @@ impl LanguageAutomata for Solidity {
 
 #[async_trait]
 impl SupportedLanguage for Solidity {
+    fn get_start_end(&self, project_files: &[PathBuf]) -> Result<(Vec<Location>, Vec<Location>)> {
+        let mut start_locations = vec![];
+        let mut end_locations = vec![];
+
+        for project_file in project_files {
+            let (text, tree) = parse_file(project_file)?;
+            let root = tree.root_node();
+
+            end_locations.extend(
+                get_query_results(
+                    &text,
+                    root,
+                    &Query::new(
+                        tree_sitter_solidity::language(),
+                        r#"
+            (member_expression
+                object: (identifier) @obj (#match? @obj "msg")
+                property: (identifier) @prop (#match? @prop "sender")
+            ) @pub
+            "#,
+                    )
+                    .unwrap(),
+                    2,
+                )
+                .iter()
+                .map(|n| get_node_location(Converter::convert(project_file.as_path()), n)),
+            );
+
+            start_locations.extend(
+                get_query_results(
+                    &text,
+                    root,
+                    &Query::new(
+                        tree_sitter_solidity::language(),
+                        r#"
+        (call_expression
+            function: (struct_expression
+                type: (member_expression
+                    object: (identifier) @hacky
+                    property: (identifier) @method
+                    (#match? @method "call")
+                )
+            )
+        )
+        "#,
+                    )
+                    .unwrap(),
+                    0,
+                )
+                .iter()
+                .map(|n| get_node_location(Converter::convert(project_file.as_path()), n)),
+            );
+        }
+
+        Ok((start_locations, end_locations))
+    }
     async fn find_paths(
         &self,
         root_dir: &Path,
