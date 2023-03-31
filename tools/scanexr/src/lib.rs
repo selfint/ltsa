@@ -54,15 +54,35 @@ pub mod test_utils {
     pub const FILE_SEP: &str = "---";
     pub const FILENAME_SEP: &str = "#@#";
 
-    pub fn display_location<M: Debug>((location, meta): &(Location, M)) -> String {
+    pub fn display_location<M: Debug>(
+        location: &Location,
+        meta: &M,
+        scrolloff: Option<u32>,
+    ) -> String {
         let path = location.uri.to_file_path().unwrap();
         let filename: &str = path.file_name().unwrap().to_str().unwrap();
 
         let content = String::from_utf8(std::fs::read(location.uri.path()).unwrap()).unwrap();
 
         let mut new_lines = vec![];
+        let first_line = if let Some(scrolloff) = scrolloff {
+            location.range.start.line - scrolloff.min(location.range.start.line)
+        } else {
+            0
+        };
+        let last_line = scrolloff.map(|scrolloff| location.range.end.line + scrolloff);
+
         for (i, line) in content.lines().enumerate() {
-            new_lines.push(line.to_string());
+            if i >= first_line as usize {
+                if let Some(last_line) = last_line {
+                    if i <= last_line as usize {
+                        new_lines.push(line.to_string());
+                    }
+                } else {
+                    new_lines.push(line.to_string());
+                }
+            }
+
             if location.range.start.line == i as u32 {
                 new_lines.push(
                     " ".repeat(location.range.start.character as usize)
@@ -79,11 +99,14 @@ pub mod test_utils {
         format!("{}\n{}\n{}", filename, FILENAME_SEP, content)
     }
 
-    pub fn display_locations<M: Debug>(locations: Vec<(Location, M)>) -> String {
+    pub fn display_locations<M: Debug>(
+        locations: Vec<(Location, M)>,
+        scrolloff: Option<u32>,
+    ) -> String {
         let mut file_locations = vec![];
 
-        for location in &locations {
-            file_locations.push(display_location(location));
+        for (location, meta) in &locations {
+            file_locations.push(display_location(location, meta, scrolloff));
         }
 
         file_locations.join(&format!("\n{}\n", FILE_SEP))

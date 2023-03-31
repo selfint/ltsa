@@ -180,26 +180,24 @@ pub enum StepMeta {
 }
 
 impl LanguageProvider for Solidity {
-    type State = Vec<StepMeta>;
+    type State = StepMeta;
     type LspProvider = SolidityLs;
 
     fn get_language(&self) -> tree_sitter::Language {
         tree_sitter_solidity::language()
     }
 
-    fn initial_state(&self) -> Self::State {
+    fn initial_state(&self) -> Vec<Self::State> {
         vec![StepMeta::Start]
     }
 
     fn get_next_steps(
         &self,
-        step: (Location, Self::State),
+        location: Location,
+        state: Self::State,
         definitions: Result<Vec<Location>>,
         references: Result<Vec<Location>>,
-    ) -> Result<Vec<(Location, Self::State)>> {
-        eprintln!("{}", crate::test_utils::display_location(&step));
-
-        let (location, mut state) = step;
+    ) -> Result<Vec<(Location, Vec<Self::State>)>> {
         let tree = self.get_tree(&location)?;
         let root = tree.root_node();
 
@@ -209,29 +207,48 @@ impl LanguageProvider for Solidity {
 
         let breadcrumbs_ = breadcrumbs.iter().map(|n| n.kind()).collect::<Vec<_>>();
 
-        dbg!(&breadcrumbs_);
+        eprintln!(
+            "Got location:\nbreadcrumbs: {:?}\n\n{}\n",
+            &breadcrumbs_,
+            crate::test_utils::display_location(&location, &state, Some(5))
+        );
 
         match (
-            state.pop().expect("tried to pop empty stack"),
+            state,
             breadcrumbs_.as_slice(),
             breadcrumbs.as_slice(),
             definitions,
             references,
         ) {
-            (StepMeta::Start, ["identifier", "member_expression", ..], _, _, _) => Ok(vec![(
-                location,
-                vec![StepMeta::Start, StepMeta::GotoDefinition],
+            (
+                StepMeta::GotoDefinition,
+                ["identifier", "variable_declaration", "variable_declaration_statement", ..],
+                [_, _, variable_declaration_statement, ..],
+                _,
+                _,
+            ) => Ok(vec![(
+                get_node_location(
+                    location.uri,
+                    &variable_declaration_statement
+                        .child_by_field_name("value")
+                        .unwrap(),
+                ),
+                vec![],
             )]),
             (
                 StepMeta::GotoDefinition,
-                ["identifier", "member_expression", ..],
+                ["identifier", "member_expression" | "call_argument", ..],
                 _,
                 Ok(definitions),
                 _,
-            ) => Ok(definitions
-                .into_iter()
-                .map(|d| (d, state.clone()))
-                .collect()),
+            ) => Ok(definitions.into_iter().map(|d| (d, vec![])).collect()),
+            (
+                StepMeta::GotoReference,
+                ["identifier", "function_definition", ..],
+                _,
+                _,
+                Ok(references),
+            ) => Ok(references.into_iter().map(|d| (d, vec![])).collect()),
             (
                 StepMeta::Start,
                 [_, "parameter", "function_definition"],
@@ -249,6 +266,7 @@ impl LanguageProvider for Solidity {
                         let mut cursor = function_definition.walk();
                         let index = function_definition
                             .named_children(&mut cursor)
+                            .filter(|p| p.kind() == "parameter")
                             .position(|p| &p == parameter)
                             .unwrap();
 
@@ -258,16 +276,9 @@ impl LanguageProvider for Solidity {
                 ],
             )]),
             (
-                StepMeta::GotoReference,
-                ["identifier", "function_definition", ..],
-                _,
-                _,
-                Ok(references),
-            ) => Ok(references.into_iter().map(|d| (d, state.clone())).collect()),
-            (
                 StepMeta::GotoArgument(index),
                 ["identifier", "call_expression", ..],
-                [_, call_expression],
+                [_, call_expression, ..],
                 _,
                 _,
             ) => {
@@ -277,8 +288,12 @@ impl LanguageProvider for Solidity {
                     .filter(|a| a.kind() == "call_argument")
                     .nth(index)
                     .expect("failed to go to argument");
-                Ok(vec![(get_node_location(location.uri, &arg), state.clone())])
+                Ok(vec![(get_node_location(location.uri, &arg), vec![])])
             }
+            (StepMeta::Start, ["identifier", ..], _, _, _) => Ok(vec![(
+                location,
+                vec![StepMeta::Start, StepMeta::GotoDefinition],
+            )]),
             _ => todo!(),
         }
     }
@@ -297,10 +312,10 @@ mod tests {
             let solidity = Solidity;
 
             let next_steps = solidity
-                .get_next_steps((location, $state), Ok(definitions), Ok(references))
+                .get_next_steps(location, $state, Ok(definitions), Ok(references))
                 .expect("failed");
 
-            let next_steps = display_locations(next_steps);
+            let next_steps = display_locations(next_steps, None);
             let snapshot = format!(
                 r#"
 --- input ---
@@ -319,7 +334,7 @@ mod tests {
     #[test]
     fn test_solidity() {
         snapshot!(
-            Solidity.initial_state(),
+            StepMeta::Start,
             r#"
 contract.sol
 #@#
@@ -340,7 +355,7 @@ contract Contract {
         );
 
         snapshot!(
-            vec![StepMeta::Start, StepMeta::GotoDefinition],
+            StepMeta::GotoDefinition,
             r#"
 contract.sol
 #@#

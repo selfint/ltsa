@@ -52,13 +52,14 @@ pub trait LanguageProvider {
     type LspProvider: LspProvider;
 
     fn get_language(&self) -> Language;
-    fn initial_state(&self) -> Self::State;
+    fn initial_state(&self) -> Vec<Self::State>;
     fn get_next_steps(
         &self,
-        step: (Location, Self::State),
+        location: Location,
+        state: Self::State,
         definitions: Result<Vec<Location>>,
         references: Result<Vec<Location>>,
-    ) -> Result<Vec<(Location, Self::State)>>;
+    ) -> Result<Vec<(Location, Vec<Self::State>)>>;
 
     fn get_tree(&self, location: &Location) -> Result<Tree> {
         let mut parser = tree_sitter::Parser::new();
@@ -78,7 +79,8 @@ pub trait LanguageProvider {
 pub async fn find_paths<S>(
     strategy: &S,
     lsp_provider: &S::LspProvider,
-    start: (Location, S::State),
+    location: Location,
+    mut stack: Vec<S::State>,
     stop_at: &[Location],
 ) -> Result<Vec<Vec<Location>>>
 where
@@ -86,20 +88,25 @@ where
     S::State: Sync + Send + Clone,
     S::LspProvider: Sync,
 {
-    if stop_at.contains(&start.0) {
-        return Ok(vec![vec![start.0.clone()]]);
+    if stop_at.contains(&location) {
+        return Ok(vec![vec![location.clone()]]);
     }
 
-    let definitions = lsp_provider.find_definitions(&start.0).await;
-    let references = lsp_provider.find_references(&start.0).await;
-    let next_steps = strategy.get_next_steps(start.clone(), definitions, references)?;
+    let definitions = lsp_provider.find_definitions(&location).await;
+    let references = lsp_provider.find_references(&location).await;
+    let stack_head = stack.pop().unwrap();
+    let next_steps =
+        strategy.get_next_steps(location.clone(), stack_head, definitions, references)?;
 
     let mut paths = vec![];
-    for next_step in next_steps {
-        let next_paths = find_paths::<S>(strategy, lsp_provider, next_step, stop_at).await?;
+    for (next_location, mut pushed_items) in next_steps {
+        let mut next_stack = stack.clone();
+        next_stack.append(&mut pushed_items);
+        let next_paths =
+            find_paths::<S>(strategy, lsp_provider, next_location, next_stack, stop_at).await?;
 
         for mut next_path in next_paths {
-            next_path.insert(0, start.0.clone());
+            next_path.insert(0, location.clone());
             paths.push(next_path);
         }
     }

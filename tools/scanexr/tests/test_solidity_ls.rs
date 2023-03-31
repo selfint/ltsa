@@ -32,7 +32,7 @@ async fn test_find_definitions() {
 ### output ###
 {}"#,
                 $input,
-                display_locations::<()>(definitions),
+                display_locations::<()>(definitions, None),
             );
 
             insta::assert_snapshot!(snapshot);
@@ -105,7 +105,7 @@ async fn test_find_references() {
 ### output ###
 {}"#,
                 $input,
-                display_locations::<()>(references),
+                display_locations::<()>(references, None),
             );
 
             insta::assert_snapshot!(snapshot);
@@ -161,16 +161,18 @@ other_file.sol
         .expect("failed to start solidity ls");
     let strategy = Solidity;
 
-    let paths = find_paths(&strategy, &lsp, (start, strategy.initial_state()), &stop_at)
+    let paths = find_paths(&strategy, &lsp, start, strategy.initial_state(), &stop_at)
         .await
         .expect("failed to find paths");
+
+    dbg!(paths.len());
 
     let path_strings = paths
         .into_iter()
         .enumerate()
         .map(|(i, path)| {
             let path = path.into_iter().map(|p| (p, ())).collect();
-            format!("Path: {i}\n{}", display_locations(path))
+            format!("Path: {i}\n{}", display_locations(path, Some(3)))
         })
         .collect::<Vec<_>>()
         .join("\n---\n");
