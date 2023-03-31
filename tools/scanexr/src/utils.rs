@@ -2,7 +2,7 @@ use std::{fs::DirEntry, path::Path};
 
 use anyhow::{anyhow, Result};
 use lsp_types::{Location, Url};
-use tree_sitter::{Node, Point, Query, QueryCursor};
+use tree_sitter::{Node, Parser, Point, Query, QueryCursor, Tree};
 
 use crate::converter::{Convert, Converter};
 
@@ -97,4 +97,17 @@ pub fn visit_dirs(dir: &Path, cb: &mut impl FnMut(&DirEntry)) -> std::io::Result
         }
     }
     Ok(())
+}
+
+pub fn parse_file(path: &Path) -> Result<(String, Tree)> {
+    let text = String::from_utf8(std::fs::read(path)?)?;
+
+    let mut parser = Parser::new();
+    parser.set_language(tree_sitter_solidity::language())?;
+
+    let tree = parser
+        .parse(&text, None)
+        .ok_or_else(|| anyhow!("failed to parse text"))?;
+
+    Ok((text, tree))
 }

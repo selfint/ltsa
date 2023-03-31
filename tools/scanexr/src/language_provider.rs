@@ -8,6 +8,7 @@ use tree_sitter::{Language, Tree};
 
 #[async_trait]
 pub trait SupportedLanguage {
+    fn get_start_end(&self, project_files: &[PathBuf]) -> Result<(Vec<Location>, Vec<Location>)>;
     async fn find_paths(
         &self,
         root_dir: &Path,

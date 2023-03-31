@@ -375,6 +375,359 @@ contract.sol
 ---
 contract.sol
 #@#
+
+    function getSender() private view returns (address) {
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Meta: ()
+            /*                                                     ^^^^^^^^^^ definition */
+        } else if (false) {
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+---
+contract.sol
+#@#
+
+    function getSender() private view returns (address) {
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+                   ^^^ Meta: ()
+            /*                                                     ^^^^^^^^^^ definition */
+        } else if (false) {
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+---
+contract.sol
+#@#
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+             ^^^ Meta: ()
+        return a;
+    }
+
+---
+contract.sol
+#@#
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+               ^ Meta: ()
+    }
+
+    function withdraw() public {
+---
+contract.sol
+#@#
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+               ^ Meta: ()
+    }
+
+    function withdraw() public {
+---
+contract.sol
+#@#
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+                         ^ Meta: ()
+        return a;
+    }
+
+---
+contract.sol
+#@#
+
+    function getSender() private view returns (address) {
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+                   ^^^ Meta: ()
+            /*                                                     ^^^^^^^^^^ definition */
+        } else if (false) {
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+---
+contract.sol
+#@#
+
+    function getSender() private view returns (address) {
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Meta: ()
+            /*                                                     ^^^^^^^^^^ definition */
+        } else if (false) {
+            return ret2(0x0000000000000000000000000000000000000000, msg.sender);
+---
+Path: 1
+other_file.sol
+#@#
+}
+
+function hacky(address target, uint amount) {
+    (bool sent, ) = target.call{value: amount}("");
+                    ^^^^^^ Meta: ()
+    /*              ^^^^^^ start */
+    require(sent, "Failed to send Ether");
+}
+---
+other_file.sol
+#@#
+}
+
+function hacky(address target, uint amount) {
+    (bool sent, ) = target.call{value: amount}("");
+                    ^^^^^^ Meta: ()
+    /*              ^^^^^^ start */
+    require(sent, "Failed to send Ether");
+}
+---
+other_file.sol
+#@#
+}
+
+function hacky(address target, uint amount) {
+    (bool sent, ) = target.call{value: amount}("");
+                    ^^^^^^ Meta: ()
+    /*              ^^^^^^ start */
+    require(sent, "Failed to send Ether");
+}
+---
+other_file.sol
+#@#
+    return (b, a);
+}
+
+function hacky(address target, uint amount) {
+                       ^^^^^^ Meta: ()
+    (bool sent, ) = target.call{value: amount}("");
+    /*              ^^^^^^ start */
+    require(sent, "Failed to send Ether");
+---
+other_file.sol
+#@#
+    return (b, a);
+}
+
+function hacky(address target, uint amount) {
+         ^^^^^ Meta: ()
+    (bool sent, ) = target.call{value: amount}("");
+    /*              ^^^^^^ start */
+    require(sent, "Failed to send Ether");
+---
+contract.sol
+#@#
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+        ^^^^^ Meta: ()
+
+        balances[bar] = 0;
+    }
+---
+contract.sol
+#@#
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+              ^^^ Meta: ()
+
+        balances[bar] = 0;
+    }
+---
+contract.sol
+#@#
+        uint bal = balances[bar];
+        require(bal > 0);
+
+        hacky(bar, bal);
+              ^^^ Meta: ()
+
+        balances[bar] = 0;
+    }
+---
+contract.sol
+#@#
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+                ^^^ Meta: ()
+
+        uint bal = balances[bar];
+        require(bal > 0);
+---
+contract.sol
+#@#
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+        ^^^^^^^^^^^ Meta: ()
+
+        uint bal = balances[bar];
+        require(bal > 0);
+---
+contract.sol
+#@#
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+                      ^^^^^^^^^^^^^^^^^^^ Meta: ()
+
+        uint bal = balances[bar];
+        require(bal > 0);
+---
+contract.sol
+#@#
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+                      ^^^ Meta: ()
+
+        uint bal = balances[bar];
+        require(bal > 0);
+---
+contract.sol
+#@#
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+             ^^^ Meta: ()
+        return a;
+    }
+
+---
+contract.sol
+#@#
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+               ^ Meta: ()
+    }
+
+    function withdraw() public {
+---
+contract.sol
+#@#
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+        return a;
+               ^ Meta: ()
+    }
+
+    function withdraw() public {
+---
+contract.sol
+#@#
+        return d;
+    }
+
+    function foo(address a, address b) private pure returns (address) {
+                         ^ Meta: ()
+        return a;
+    }
+
+---
+contract.sol
+#@#
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+                      ^^^ Meta: ()
+
+        uint bal = balances[bar];
+        require(bal > 0);
+---
+contract.sol
+#@#
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+                          ^^^^^^ Meta: ()
+
+        uint bal = balances[bar];
+        require(bal > 0);
+---
+contract.sol
+#@#
+    function withdraw() public {
+        address sender = getSender();
+
+        address bar = foo(sender, sender);
+                          ^^^^^^ Meta: ()
+
+        uint bal = balances[bar];
+        require(bal > 0);
+---
+contract.sol
+#@#
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+                ^^^^^^ Meta: ()
+
+        address bar = foo(sender, sender);
+
+---
+contract.sol
+#@#
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+        ^^^^^^^^^^^^^^ Meta: ()
+
+        address bar = foo(sender, sender);
+
+---
+contract.sol
+#@#
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+                         ^^^^^^^^^^^ Meta: ()
+
+        address bar = foo(sender, sender);
+
+---
+contract.sol
+#@#
+    }
+
+    function withdraw() public {
+        address sender = getSender();
+                         ^^^^^^^^^ Meta: ()
+
+        address bar = foo(sender, sender);
+
+---
+contract.sol
+#@#
+        /*     ^^^^^^^^^^ definition */
+    }
+
+    function getSender() private view returns (address) {
+             ^^^^^^^^^ Meta: ()
+        if (false) {
+            return foo(0x0000000000000000000000000000000000000000, msg.sender);
+            /*                                                     ^^^^^^^^^^ definition */
+---
+contract.sol
+#@#
             return foo(0x0000000000000000000000000000000000000000, msg.sender);
             /*                                                     ^^^^^^^^^^ definition */
         } else if (false) {
@@ -604,7 +957,7 @@ contract.sol
         }
 
 ---
-Path: 1
+Path: 2
 other_file.sol
 #@#
 }
