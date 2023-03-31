@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::anyhow;
 use anyhow::Result;
 use lsp_types::{Position, Url};
+use tree_sitter::Node;
 use tree_sitter::Point;
 
 pub mod language_provider;
@@ -205,4 +206,14 @@ pub fn get_uri_content(uri: &Url) -> Result<String> {
         uri.to_file_path()
             .map_err(|_| anyhow!("failed to convert uri to file path"))?,
     )?)?)
+}
+
+pub fn get_named_child_index<'a>(node: &Node<'a>, child: &Node<'a>) -> Option<usize> {
+    let mut cursor = node.walk();
+    let index = node
+        .named_children(&mut cursor)
+        .filter(|c| c.kind() == child.kind())
+        .position(|c| &c == child);
+
+    index
 }

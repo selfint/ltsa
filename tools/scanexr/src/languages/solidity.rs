@@ -19,7 +19,7 @@ use tokio::{
 use tree_sitter::Query;
 
 use crate::{
-    get_uri_content,
+    get_named_child_index, get_uri_content,
     language_provider::{get_breadcrumbs, get_node_location, LanguageProvider, LspProvider},
     utils::get_query_results,
     Convert, Converter,
@@ -184,6 +184,7 @@ pub enum StepMeta {
     /// is a parameter, we can return to the correct call expression
     ResolveReturnValue(Location),
     Resolve,
+    UnpackTuple(usize),
 }
 
 impl LanguageProvider for Solidity {
@@ -228,7 +229,27 @@ impl LanguageProvider for Solidity {
             match (state, breadcrumbs.as_slice(), definitions, references) {
                 (_, [("number_literal", _), ..], _, _) => vec![],
                 (
-                    StepMeta::Resolve,
+                    state @ (StepMeta::Resolve | StepMeta::ResolveReturnValue(..)),
+                    [("identifier", _), ("variable_declaration", variable_declaration), ("variable_declaration_tuple", variable_declaration_tuple)],
+                    _,
+                    _,
+                ) => {
+                    vec![(
+                        get_node_location(location.uri, variable_declaration_tuple),
+                        vec![
+                            state,
+                            StepMeta::UnpackTuple(
+                                get_named_child_index(
+                                    variable_declaration_tuple,
+                                    variable_declaration,
+                                )
+                                .unwrap(),
+                            ),
+                        ],
+                    )]
+                }
+                (
+                    state @ (StepMeta::Resolve | StepMeta::ResolveReturnValue(..)),
                     [("identifier", _), ("variable_declaration", _), ("variable_declaration_statement", variable_declaration_statement), ..],
                     _,
                     _,
@@ -240,7 +261,7 @@ impl LanguageProvider for Solidity {
                                 .child_by_field_name("value")
                                 .unwrap(),
                         ),
-                        vec![StepMeta::Resolve],
+                        vec![state],
                     )]
                 }
                 (
@@ -268,16 +289,9 @@ impl LanguageProvider for Solidity {
                     anchor,
                     vec![
                         StepMeta::Resolve,
-                        StepMeta::GotoArgument({
-                            let mut cursor = function_definition.walk();
-                            let index = function_definition
-                                .named_children(&mut cursor)
-                                .filter(|p| p.kind() == "parameter")
-                                .position(|p| &p == parameter)
-                                .unwrap();
-
-                            index
-                        }),
+                        StepMeta::GotoArgument(
+                            get_named_child_index(function_definition, parameter).unwrap(),
+                        ),
                     ],
                 )],
                 (
@@ -292,16 +306,9 @@ impl LanguageProvider for Solidity {
                     ),
                     vec![
                         StepMeta::Resolve,
-                        StepMeta::GotoArgument({
-                            let mut cursor = function_definition.walk();
-                            let index = function_definition
-                                .named_children(&mut cursor)
-                                .filter(|p| p.kind() == "parameter")
-                                .position(|p| &p == parameter)
-                                .unwrap();
-
-                            index
-                        }),
+                        StepMeta::GotoArgument(
+                            get_named_child_index(function_definition, parameter).unwrap(),
+                        ),
                         StepMeta::GotoReference,
                     ],
                 )],
