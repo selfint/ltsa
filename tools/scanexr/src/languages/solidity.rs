@@ -177,6 +177,7 @@ pub enum StepMeta {
     GotoDefinition,
     GotoArgument(usize),
     GotoReference,
+    GotoReturnValue,
 }
 
 impl LanguageProvider for Solidity {
@@ -237,7 +238,7 @@ impl LanguageProvider for Solidity {
             )]),
             (
                 StepMeta::GotoDefinition,
-                ["identifier", "member_expression" | "call_argument", ..],
+                ["identifier", "member_expression" | "call_argument" | "call_expression", ..],
                 _,
                 Ok(definitions),
                 _,
@@ -289,6 +290,19 @@ impl LanguageProvider for Solidity {
                     .nth(index)
                     .expect("failed to go to argument");
                 Ok(vec![(get_node_location(location.uri, &arg), vec![])])
+            }
+            (StepMeta::Start, ["call_expression", ..], _, _, _) => Ok(vec![(
+                location,
+                vec![StepMeta::Start, StepMeta::GotoReturnValue],
+            )]),
+            (StepMeta::GotoReturnValue, ["call_expression", ..], [call_expression, ..], _, _) => {
+                Ok(vec![(
+                    get_node_location(
+                        location.uri,
+                        &call_expression.child_by_field_name("function").unwrap(),
+                    ),
+                    vec![StepMeta::GotoReturnValue, StepMeta::GotoDefinition],
+                )])
             }
             (StepMeta::Start, ["identifier", ..], _, _, _) => Ok(vec![(
                 location,
