@@ -178,13 +178,14 @@ pub enum StepMeta {
     GotoDefinition,
     GotoArgument(usize),
     GotoReference,
-    /// Use this when a call expression needs to be resolved.
-    ///
-    /// The Location anchor is here so that if the resolved return value
-    /// is a parameter, we can return to the correct call expression
-    ResolveReturnValue(Location),
-    Resolve,
-    UnpackTuple(usize),
+    Resolve {
+        /// Use this when a call expression needs to be resolved.
+        ///
+        /// The Location anchor is here so that if the resolved return value
+        /// is a parameter, we can return to the correct call expression
+        anchor: Option<Location>,
+        index: Option<usize>,
+    },
 }
 
 impl LanguageProvider for Solidity {
@@ -219,9 +220,8 @@ impl LanguageProvider for Solidity {
             .collect::<Vec<_>>();
 
         eprintln!(
-            "Got location:\nbreadcrumbs: {:?}\nstate: {:?}\n\n{}\n",
+            "Got location:\nbreadcrumbs: {:?}\n\n{}\n",
             breadcrumbs.iter().map(|(k, _)| k).collect::<Vec<_>>(),
-            &state,
             crate::test_utils::display_location(&location, &state, Some(5))
         );
 
@@ -229,28 +229,36 @@ impl LanguageProvider for Solidity {
             match (state, breadcrumbs.as_slice(), definitions, references) {
                 (_, [("number_literal", _), ..], _, _) => vec![],
                 (
-                    state @ (StepMeta::Resolve | StepMeta::ResolveReturnValue(..)),
-                    [("identifier", _), ("variable_declaration", variable_declaration), ("variable_declaration_tuple", variable_declaration_tuple)],
+                    state @ StepMeta::Resolve { .. },
+                    [("identifier", _), ("variable_declaration", decl), ("variable_declaration_tuple", tuple), ..],
                     _,
                     _,
                 ) => {
                     vec![(
-                        get_node_location(location.uri, variable_declaration_tuple),
+                        get_node_location(location.uri, tuple),
                         vec![
                             state,
-                            StepMeta::UnpackTuple(
-                                get_named_child_index(
-                                    variable_declaration_tuple,
-                                    variable_declaration,
-                                )
-                                .unwrap(),
-                            ),
+                            StepMeta::Resolve {
+                                anchor: None,
+                                index: Some(get_named_child_index(tuple, decl).unwrap()),
+                            },
                         ],
                     )]
                 }
                 (
-                    state @ (StepMeta::Resolve | StepMeta::ResolveReturnValue(..)),
-                    [("identifier", _), ("variable_declaration", _), ("variable_declaration_statement", variable_declaration_statement), ..],
+                    state @ StepMeta::Resolve { .. },
+                    [("identifier", _), ("variable_declaration", variable_declaration), ..],
+                    _,
+                    _,
+                ) => {
+                    vec![(
+                        get_node_location(location.uri, variable_declaration),
+                        vec![state],
+                    )]
+                }
+                (
+                    state @ StepMeta::Resolve { .. },
+                    [("variable_declaration" | "variable_declaration_tuple", _), ("variable_declaration_statement", variable_declaration_statement), ..],
                     _,
                     _,
                 ) => {
@@ -268,7 +276,7 @@ impl LanguageProvider for Solidity {
                     StepMeta::GotoDefinition,
                     [("identifier", _), (
                         "member_expression" | "call_argument" | "call_expression"
-                        | "return_statement",
+                        | "return_statement" | "tuple_expression",
                         _,
                     ), ..],
                     Ok(definitions),
@@ -281,21 +289,30 @@ impl LanguageProvider for Solidity {
                     Ok(references),
                 ) => references.into_iter().map(|d| (d, vec![])).collect(),
                 (
-                    StepMeta::ResolveReturnValue(anchor),
+                    StepMeta::Resolve {
+                        anchor: Some(anchor),
+                        index: None,
+                    },
                     [_, ("parameter", parameter), ("function_definition", function_definition), ..],
                     _,
                     _,
                 ) => vec![(
                     anchor,
                     vec![
-                        StepMeta::Resolve,
+                        StepMeta::Resolve {
+                            anchor: None,
+                            index: None,
+                        },
                         StepMeta::GotoArgument(
                             get_named_child_index(function_definition, parameter).unwrap(),
                         ),
                     ],
                 )],
                 (
-                    StepMeta::Resolve,
+                    StepMeta::Resolve {
+                        anchor: None,
+                        index: None,
+                    },
                     [_, ("parameter", parameter), ("function_definition", function_definition), ..],
                     _,
                     _,
@@ -305,7 +322,10 @@ impl LanguageProvider for Solidity {
                         &function_definition.child_by_field_name("name").unwrap(),
                     ),
                     vec![
-                        StepMeta::Resolve,
+                        StepMeta::Resolve {
+                            anchor: None,
+                            index: None,
+                        },
                         StepMeta::GotoArgument(
                             get_named_child_index(function_definition, parameter).unwrap(),
                         ),
@@ -327,14 +347,8 @@ impl LanguageProvider for Solidity {
                         .expect("failed to go to argument");
                     vec![(get_node_location(location.uri, &arg), vec![])]
                 }
-                (StepMeta::Resolve, [("call_expression", _), ..], _, _) => {
-                    vec![(
-                        location.clone(),
-                        vec![StepMeta::Resolve, StepMeta::ResolveReturnValue(location)],
-                    )]
-                }
                 (
-                    StepMeta::ResolveReturnValue(anchor),
+                    StepMeta::Resolve { anchor, index },
                     [("call_expression", call_expression), ..],
                     _,
                     _,
@@ -346,14 +360,17 @@ impl LanguageProvider for Solidity {
                     vec![(
                         function_call.clone(),
                         vec![
-                            StepMeta::ResolveReturnValue(anchor),
-                            StepMeta::ResolveReturnValue(function_call),
+                            StepMeta::Resolve { anchor, index },
+                            StepMeta::Resolve {
+                                anchor: Some(function_call),
+                                index,
+                            },
                             StepMeta::GotoDefinition,
                         ],
                     )]
                 }
                 (
-                    StepMeta::ResolveReturnValue(anchor),
+                    state @ StepMeta::Resolve { .. },
                     [("identifier", _), ("function_definition", function_definition), ..],
                     _,
                     _,
@@ -367,20 +384,57 @@ impl LanguageProvider for Solidity {
                 .map(|node| {
                     (
                         get_node_location(location.uri.clone(), node),
-                        vec![StepMeta::ResolveReturnValue(anchor.clone())],
+                        vec![state.clone()],
                     )
                 })
                 .collect::<Vec<_>>(),
                 (
-                    state @ (StepMeta::Resolve | StepMeta::ResolveReturnValue(..)),
-                    [("identifier", _), ("member_expression" | "call_argument" | "return_statement", _), ..],
+                    StepMeta::Resolve {
+                        anchor,
+                        index: Some(index),
+                    },
+                    [("tuple_expression", tuple_expression), ..],
+                    _,
+                    _,
+                ) => {
+                    let mut cursor = tuple_expression.walk();
+                    let item = tuple_expression
+                        .named_children(&mut cursor)
+                        .nth(index)
+                        .expect("failed to go to argument");
+                    let item_location = get_node_location(location.uri, &item);
+
+                    vec![(
+                        item_location,
+                        vec![StepMeta::Resolve {
+                            anchor,
+                            index: None,
+                        }],
+                    )]
+                }
+                (
+                    state @ StepMeta::Resolve { .. },
+                    [("identifier", _), (
+                        "member_expression" | "call_argument" | "return_statement"
+                        | "tuple_expression",
+                        _,
+                    ), ..],
                     _,
                     _,
                 ) => {
                     vec![(location, vec![state, StepMeta::GotoDefinition])]
                 }
                 (StepMeta::Start, _, _, _) => {
-                    vec![(location, vec![StepMeta::Start, StepMeta::Resolve])]
+                    vec![(
+                        location,
+                        vec![
+                            StepMeta::Start,
+                            StepMeta::Resolve {
+                                anchor: None,
+                                index: None,
+                            },
+                        ],
+                    )]
                 }
                 _ => todo!(),
             },
