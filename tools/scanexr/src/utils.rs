@@ -6,47 +6,6 @@ use tree_sitter::{Node, Point, Query, QueryCursor};
 
 use crate::converter::{Convert, Converter};
 
-pub fn get_query_results<'a>(
-    text: &str,
-    root: tree_sitter::Node<'a>,
-    query: &Query,
-    capture_index: u32,
-) -> Vec<Node<'a>> {
-    let mut query_cursor = QueryCursor::new();
-    let captures = query_cursor.captures(query, root, text.as_bytes());
-
-    let mut nodes = vec![];
-
-    for (q_match, index) in captures {
-        if index != 0 {
-            continue;
-        }
-
-        for capture in q_match.captures {
-            if capture.index == capture_index {
-                nodes.push(capture.node);
-            }
-        }
-    }
-
-    nodes
-}
-
-pub fn visit_dirs(dir: &Path, cb: &mut impl FnMut(&DirEntry)) -> std::io::Result<()> {
-    if dir.is_dir() {
-        for entry in std::fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                visit_dirs(&path, cb)?;
-            } else {
-                cb(&entry);
-            }
-        }
-    }
-    Ok(())
-}
-
 pub fn get_node_location(uri: Url, node: &Node) -> Location {
     Location {
         uri,
@@ -82,13 +41,6 @@ pub fn get_breadcrumbs<'a>(root: Node<'a>, location: &Location) -> Option<Vec<No
     Some(breadcrumbs)
 }
 
-pub fn get_uri_content(uri: &Url) -> Result<String> {
-    Ok(String::from_utf8(std::fs::read(
-        uri.to_file_path()
-            .map_err(|_| anyhow!("failed to convert uri to file path"))?,
-    )?)?)
-}
-
 pub fn get_named_child_index<'a>(node: &Node<'a>, child: &Node<'a>) -> Option<usize> {
     let mut cursor = node.walk();
     let index = node
@@ -97,4 +49,52 @@ pub fn get_named_child_index<'a>(node: &Node<'a>, child: &Node<'a>) -> Option<us
         .position(|c| &c == child);
 
     index
+}
+
+pub fn get_query_results<'a>(
+    text: &str,
+    root: tree_sitter::Node<'a>,
+    query: &Query,
+    capture_index: u32,
+) -> Vec<Node<'a>> {
+    let mut query_cursor = QueryCursor::new();
+    let captures = query_cursor.captures(query, root, text.as_bytes());
+
+    let mut nodes = vec![];
+
+    for (q_match, index) in captures {
+        if index != 0 {
+            continue;
+        }
+
+        for capture in q_match.captures {
+            if capture.index == capture_index {
+                nodes.push(capture.node);
+            }
+        }
+    }
+
+    nodes
+}
+
+pub fn get_uri_content(uri: &Url) -> Result<String> {
+    Ok(String::from_utf8(std::fs::read(
+        uri.to_file_path()
+            .map_err(|_| anyhow!("failed to convert uri to file path"))?,
+    )?)?)
+}
+
+pub fn visit_dirs(dir: &Path, cb: &mut impl FnMut(&DirEntry)) -> std::io::Result<()> {
+    if dir.is_dir() {
+        for entry in std::fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                visit_dirs(&path, cb)?;
+            } else {
+                cb(&entry);
+            }
+        }
+    }
+    Ok(())
 }

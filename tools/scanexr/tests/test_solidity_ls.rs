@@ -1,5 +1,5 @@
 use scanexr::{
-    language_provider::{find_paths, LanguageProvider, LspProvider},
+    language_provider::{find_paths, LanguageAutomata, LspProvider},
     languages::solidity::{Solidity, SolidityLs},
     test_utils::{display_locations, setup_test_dir},
     utils::visit_dirs,

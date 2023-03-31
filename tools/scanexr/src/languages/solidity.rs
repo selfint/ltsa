@@ -20,7 +20,7 @@ use tree_sitter::Query;
 
 use crate::{
     converter::{Convert, Converter},
-    language_provider::{LanguageProvider, LspProvider},
+    language_provider::{LanguageAutomata, LspProvider},
     utils::{
         get_breadcrumbs, get_named_child_index, get_node_location, get_query_results,
         get_uri_content,
@@ -190,25 +190,25 @@ pub enum StepMeta {
     },
 }
 
-impl LanguageProvider for Solidity {
-    type State = StepMeta;
+impl LanguageAutomata for Solidity {
+    type Stack = StepMeta;
     type LspProvider = SolidityLs;
 
     fn get_language(&self) -> tree_sitter::Language {
         tree_sitter_solidity::language()
     }
 
-    fn initial_state(&self) -> Vec<Self::State> {
+    fn initial_state(&self) -> Vec<Self::Stack> {
         vec![StepMeta::Start]
     }
 
-    fn get_next_steps(
+    fn transition(
         &self,
         location: Location,
-        state: Self::State,
+        state: Self::Stack,
         definitions: Result<Vec<Location>>,
         references: Result<Vec<Location>>,
-    ) -> Result<Vec<(Location, Vec<Self::State>)>> {
+    ) -> Result<Vec<(Location, Vec<Self::Stack>)>> {
         let tree = self.get_tree(&location)?;
         let root = tree.root_node();
 
@@ -457,7 +457,7 @@ mod tests {
             let solidity = Solidity;
 
             let next_steps = solidity
-                .get_next_steps(location, $state, Ok(definitions), Ok(references))
+                .transition(location, $state, Ok(definitions), Ok(references))
                 .expect("failed");
 
             let next_steps = display_locations(next_steps, None);

@@ -10,19 +10,27 @@ pub trait LspProvider {
     async fn find_references(&self, location: &Location) -> Result<Vec<Location>>;
 }
 
-pub trait LanguageProvider {
-    type State;
+/// Push down automaton that receives an input
+/// and returns the next states.
+///
+/// Notice that the 'state' of the automaton is the
+/// current input, and the next states will be the
+/// next inputs.
+pub trait LanguageAutomata {
+    type Stack;
     type LspProvider: LspProvider;
 
     fn get_language(&self) -> Language;
-    fn initial_state(&self) -> Vec<Self::State>;
-    fn get_next_steps(
+    fn initial_state(&self) -> Vec<Self::Stack>;
+
+    /// Get the next (inputs, items to push to the stack) values.
+    fn transition(
         &self,
-        location: Location,
-        state: Self::State,
+        input: Location,
+        stack: Self::Stack,
         definitions: Result<Vec<Location>>,
         references: Result<Vec<Location>>,
-    ) -> Result<Vec<(Location, Vec<Self::State>)>>;
+    ) -> Result<Vec<(Location, Vec<Self::Stack>)>>;
 
     fn get_tree(&self, location: &Location) -> Result<Tree> {
         let mut parser = tree_sitter::Parser::new();
@@ -39,17 +47,17 @@ pub trait LanguageProvider {
 }
 
 #[async_recursion]
-pub async fn find_paths<S>(
-    strategy: &S,
-    lsp_provider: &S::LspProvider,
+pub async fn find_paths<P>(
+    language_provider: &P,
+    lsp_provider: &P::LspProvider,
     location: Location,
-    mut stack: Vec<S::State>,
+    mut stack: Vec<P::Stack>,
     stop_at: &[Location],
 ) -> Result<Vec<Vec<Location>>>
 where
-    S: LanguageProvider + Sync + Send,
-    S::State: Sync + Send + Clone,
-    S::LspProvider: Sync,
+    P: LanguageAutomata + Sync + Send,
+    P::Stack: Sync + Send + Clone,
+    P::LspProvider: Sync,
 {
     if stop_at.contains(&location) {
         return Ok(vec![vec![location.clone()]]);
@@ -59,14 +67,20 @@ where
     let references = lsp_provider.find_references(&location).await;
     let stack_head = stack.pop().unwrap();
     let next_steps =
-        strategy.get_next_steps(location.clone(), stack_head, definitions, references)?;
+        language_provider.transition(location.clone(), stack_head, definitions, references)?;
 
     let mut paths = vec![];
     for (next_location, mut pushed_items) in next_steps {
         let mut next_stack = stack.clone();
         next_stack.append(&mut pushed_items);
-        let next_paths =
-            find_paths::<S>(strategy, lsp_provider, next_location, next_stack, stop_at).await?;
+        let next_paths = find_paths::<P>(
+            language_provider,
+            lsp_provider,
+            next_location,
+            next_stack,
+            stop_at,
+        )
+        .await?;
 
         for mut next_path in next_paths {
             next_path.insert(0, location.clone());
