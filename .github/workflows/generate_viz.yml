@@ -17,26 +17,24 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: Swatinem/rust-cache@v2
-      with:
-        shared-key: "generate_viz"
-    - name: Install solc
-      run: |
-        sudo add-apt-repository ppa:ethereum/ethereum
-        sudo apt-get update -y
-        sudo apt-get install -y solc
-    - name: Build tools
-      run: cargo build --release --verbose
-    - name: Build viz
-      run: ./target/release/scanexr solidity ${{ inputs.contract }} | ./target/release/viz - > viz.html
-    - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v3.1.2
-      with:
-        name: viz.html
-        path: viz.html
-
+      - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "generate_viz"
+      - name: Install solc
+        run: |
+          sudo add-apt-repository ppa:ethereum/ethereum
+          sudo apt-get update -y
+          sudo apt-get install -y solc
+      - name: Build tools
+        run: cargo build --release --verbose
+      - name: Build viz
+        run: ./target/release/scanexr solidity ${{ inputs.contract }} | ./target/release/viz - > viz.html
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v3.1.2
+        with:
+          name: viz.html
+          path: viz.html
