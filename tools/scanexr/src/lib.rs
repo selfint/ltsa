@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use anyhow::anyhow;
+use anyhow::Result;
 use lsp_types::{Position, Url};
 use tree_sitter::Point;
 
@@ -196,4 +198,11 @@ pub mod test_utils {
 
         (tempdir, start, definitions, references)
     }
+}
+
+pub fn get_uri_content(uri: &Url) -> Result<String> {
+    Ok(String::from_utf8(std::fs::read(
+        uri.to_file_path()
+            .map_err(|_| anyhow!("failed to convert uri to file path"))?,
+    )?)?)
 }
