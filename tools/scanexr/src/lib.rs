@@ -1,8 +1,7 @@
 use anyhow::anyhow;
 use anyhow::Result;
-use lsp_types::{Position, Url};
+use lsp_types::Url;
 use tree_sitter::Node;
-use tree_sitter::Point;
 
 pub mod language_provider;
 pub mod languages;
