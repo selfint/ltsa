@@ -3,6 +3,8 @@ Static analysis tools leveraging LSP and tree-sitter.
 
 ## Example output
 
+Executed on [contract](https://github.com/selfint/ltsa/tree/main/tools/scanexr/tests/solidity/contract)
+
 <div id="stacktrace" style="display: block;"><div>
                         <h1>Stacktrace: 1</h1>
                         <div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
