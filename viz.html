@@ -1,0 +1,2272 @@
+
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <style>
+            pre {
+                // background: #303030;
+                // color: #f1f1f1;
+                // padding: 10px 16px;
+                // border-radius: 2px;
+                // border-top: 4px solid #00aeef;
+                // -moz-box-shadow: inset 0 0 10px #000;
+                // box-shadow: inset 0 0 10px #000;
+            }
+            
+            pre span {
+                counter-increment: line;
+            }
+            pre span:before {
+                content: counter(line);
+                display: inline-block;
+                border-right: 1px solid #ddd;
+                padding: 0 .5em;
+                margin-right: .5em;
+                color: #888;
+                width: 5ch;
+                text-align: right;
+            }
+
+            #content {
+                display: grid;
+                grid-template-areas: 'stacktrace file';
+                grid-area-columns: 1fr 1fr;
+            }
+
+            #stacktrace {
+                grid-area: "stacktrace";
+            }
+
+            #file {
+                grid-area: "file";
+            }
+            </style>
+                    <script>
+                        const pagesMap = new Map();
+                        pagesMap.set(1, String.raw`<div>
+                        <h1>Stacktrace: 1</h1>
+                        <div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  1. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 3
+                "><span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = <mark>target</mark>.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  2. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 3
+                "><span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = <mark>target</mark>.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  3. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 3
+                "><span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = <mark>target</mark>.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  4. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 2
+                "><span></span>
+<span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address <mark>target</mark>, uint amount) {</span>
+<span>    (bool sent, ) = target.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  5. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 2
+                "><span></span>
+<span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function <mark>hacky</mark>(address target, uint amount) {</span>
+<span>    (bool sent, ) = target.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  6. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 69
+                "><span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        <mark>hacky</mark>(bar, bal);</span>
+<span></span>
+<span>        balances[bar] = 0;</span>
+<span>    }</span>
+<span></span>
+<span>    // Helper function to check the balance of this contract</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  7. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 69
+                "><span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(<mark>bar</mark>, bal);</span>
+<span></span>
+<span>        balances[bar] = 0;</span>
+<span>    }</span>
+<span></span>
+<span>    // Helper function to check the balance of this contract</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  8. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 69
+                "><span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(<mark>bar</mark>, bal);</span>
+<span></span>
+<span>        balances[bar] = 0;</span>
+<span>    }</span>
+<span></span>
+<span>    // Helper function to check the balance of this contract</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  9. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address <mark>bar</mark> = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 10. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        <mark>address bar</mark> = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 11. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = <mark>foo(sender, sender)</mark>;</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 12. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = <mark>foo</mark>(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 13. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 57
+                "><span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function <mark>foo</mark>(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 14. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 58
+                "><span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return <mark>a</mark>;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 15. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 58
+                "><span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return <mark>a</mark>;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 16. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 57
+                "><span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address <mark>a</mark>, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 17. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = <mark>foo</mark>(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 18. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = foo(<mark>sender</mark>, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 19. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = foo(<mark>sender</mark>, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 20. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 62
+                "><span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address <mark>sender</mark> = getSender();</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 21. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 62
+                "><span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        <mark>address sender</mark> = getSender();</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 22. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 62
+                "><span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = <mark>getSender()</mark>;</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 23. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 62
+                "><span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = <mark>getSender</mark>();</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 24. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 39
+                "><span>    function getSender2() private view returns (address) {</span>
+<span>        return msg.sender;</span>
+<span>        /*     ^^^^^^^^^^ definition */</span>
+<span>    }</span>
+<span></span>
+<span>    function <mark>getSender</mark>() private view returns (address) {</span>
+<span>        if (false) {</span>
+<span>            return foo(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                     ^^^^^^^^^^ definition */</span>
+<span>        } else if (false) {</span>
+<span>            return ret2(0x0000000000000000000000000000000000000000, msg.sender);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 25. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 41
+                "><span>        /*     ^^^^^^^^^^ definition */</span>
+<span>    }</span>
+<span></span>
+<span>    function getSender() private view returns (address) {</span>
+<span>        if (false) {</span>
+<span>            return <mark>foo(0x0000000000000000000000000000000000000000, msg.sender)</mark>;</span>
+<span>            /*                                                     ^^^^^^^^^^ definition */</span>
+<span>        } else if (false) {</span>
+<span>            return ret2(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                      ^^^^^^^^^^ definition */</span>
+<span>        }</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 26. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 41
+                "><span>        /*     ^^^^^^^^^^ definition */</span>
+<span>    }</span>
+<span></span>
+<span>    function getSender() private view returns (address) {</span>
+<span>        if (false) {</span>
+<span>            return <mark>foo</mark>(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                     ^^^^^^^^^^ definition */</span>
+<span>        } else if (false) {</span>
+<span>            return ret2(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                      ^^^^^^^^^^ definition */</span>
+<span>        }</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 27. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 57
+                "><span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function <mark>foo</mark>(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 28. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 58
+                "><span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return <mark>a</mark>;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 29. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 58
+                "><span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return <mark>a</mark>;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 30. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 57
+                "><span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address <mark>a</mark>, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 31. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 41
+                "><span>        /*     ^^^^^^^^^^ definition */</span>
+<span>    }</span>
+<span></span>
+<span>    function getSender() private view returns (address) {</span>
+<span>        if (false) {</span>
+<span>            return <mark>foo</mark>(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                     ^^^^^^^^^^ definition */</span>
+<span>        } else if (false) {</span>
+<span>            return ret2(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                      ^^^^^^^^^^ definition */</span>
+<span>        }</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 32. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 41
+                "><span>        /*     ^^^^^^^^^^ definition */</span>
+<span>    }</span>
+<span></span>
+<span>    function getSender() private view returns (address) {</span>
+<span>        if (false) {</span>
+<span>            return foo(<mark>0x0000000000000000000000000000000000000000</mark>, msg.sender);</span>
+<span>            /*                                                     ^^^^^^^^^^ definition */</span>
+<span>        } else if (false) {</span>
+<span>            return ret2(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                      ^^^^^^^^^^ definition */</span>
+<span>        }</span></pre>
+                    </div>
+                    </div>`)
+pagesMap.set(2, String.raw`<div>
+                        <h1>Stacktrace: 2</h1>
+                        <div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  1. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 3
+                "><span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = <mark>target</mark>.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  2. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 3
+                "><span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = <mark>target</mark>.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  3. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 3
+                "><span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = <mark>target</mark>.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  4. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 2
+                "><span></span>
+<span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address <mark>target</mark>, uint amount) {</span>
+<span>    (bool sent, ) = target.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  5. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 2
+                "><span></span>
+<span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function <mark>hacky</mark>(address target, uint amount) {</span>
+<span>    (bool sent, ) = target.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  6. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 69
+                "><span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        <mark>hacky</mark>(bar, bal);</span>
+<span></span>
+<span>        balances[bar] = 0;</span>
+<span>    }</span>
+<span></span>
+<span>    // Helper function to check the balance of this contract</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  7. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 69
+                "><span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(<mark>bar</mark>, bal);</span>
+<span></span>
+<span>        balances[bar] = 0;</span>
+<span>    }</span>
+<span></span>
+<span>    // Helper function to check the balance of this contract</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  8. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 69
+                "><span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(<mark>bar</mark>, bal);</span>
+<span></span>
+<span>        balances[bar] = 0;</span>
+<span>    }</span>
+<span></span>
+<span>    // Helper function to check the balance of this contract</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  9. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address <mark>bar</mark> = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 10. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        <mark>address bar</mark> = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 11. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = <mark>foo(sender, sender)</mark>;</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 12. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = <mark>foo</mark>(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 13. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 57
+                "><span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function <mark>foo</mark>(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 14. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 58
+                "><span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return <mark>a</mark>;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 15. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 58
+                "><span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return <mark>a</mark>;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 16. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 57
+                "><span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address <mark>a</mark>, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 17. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = <mark>foo</mark>(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 18. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = foo(<mark>sender</mark>, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 19. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = foo(<mark>sender</mark>, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 20. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 62
+                "><span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address <mark>sender</mark> = getSender();</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 21. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 62
+                "><span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        <mark>address sender</mark> = getSender();</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 22. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 62
+                "><span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = <mark>getSender()</mark>;</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 23. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 62
+                "><span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = <mark>getSender</mark>();</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 24. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 39
+                "><span>    function getSender2() private view returns (address) {</span>
+<span>        return msg.sender;</span>
+<span>        /*     ^^^^^^^^^^ definition */</span>
+<span>    }</span>
+<span></span>
+<span>    function <mark>getSender</mark>() private view returns (address) {</span>
+<span>        if (false) {</span>
+<span>            return foo(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                     ^^^^^^^^^^ definition */</span>
+<span>        } else if (false) {</span>
+<span>            return ret2(0x0000000000000000000000000000000000000000, msg.sender);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 25. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 44
+                "><span>    function getSender() private view returns (address) {</span>
+<span>        if (false) {</span>
+<span>            return foo(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                     ^^^^^^^^^^ definition */</span>
+<span>        } else if (false) {</span>
+<span>            return <mark>ret2(0x0000000000000000000000000000000000000000, msg.sender)</mark>;</span>
+<span>            /*                                                      ^^^^^^^^^^ definition */</span>
+<span>        }</span>
+<span></span>
+<span>        return getSender2();</span>
+<span>    }</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 26. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 44
+                "><span>    function getSender() private view returns (address) {</span>
+<span>        if (false) {</span>
+<span>            return foo(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                     ^^^^^^^^^^ definition */</span>
+<span>        } else if (false) {</span>
+<span>            return <mark>ret2</mark>(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                      ^^^^^^^^^^ definition */</span>
+<span>        }</span>
+<span></span>
+<span>        return getSender2();</span>
+<span>    }</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 27. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 51
+                "><span>        }</span>
+<span></span>
+<span>        return getSender2();</span>
+<span>    }</span>
+<span></span>
+<span>    function <mark>ret2</mark>(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 28. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 54
+                "><span>    }</span>
+<span></span>
+<span>    function ret2(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return <mark>d</mark>;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 29. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 54
+                "><span>    }</span>
+<span></span>
+<span>    function ret2(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return <mark>d</mark>;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 30. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 52
+                "><span></span>
+<span>        return getSender2();</span>
+<span>    }</span>
+<span></span>
+<span>    function ret2(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address <mark>d</mark>) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 31. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 52
+                "><span></span>
+<span>        return getSender2();</span>
+<span>    }</span>
+<span></span>
+<span>    function ret2(address a, address a2) private pure returns (address) {</span>
+<span>        <mark>(uint c, address d)</mark> = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 32. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 52
+                "><span></span>
+<span>        return getSender2();</span>
+<span>    }</span>
+<span></span>
+<span>    function ret2(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address d) = <mark>other(a2, 1)</mark>;</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 33. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 52
+                "><span></span>
+<span>        return getSender2();</span>
+<span>    }</span>
+<span></span>
+<span>    function ret2(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address d) = <mark>other</mark>(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 34. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 0
+                "><span>// SPDX-License-Identifier: MIT</span>
+<span>pragma solidity ^0.8.17;</span>
+<span></span>
+<span>function <mark>other</mark>(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = target.call{value: amount}("");</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 35. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 0
+                "><span>// SPDX-License-Identifier: MIT</span>
+<span>pragma solidity ^0.8.17;</span>
+<span></span>
+<span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return <mark>(b, a)</mark>;</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = target.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 36. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 0
+                "><span>// SPDX-License-Identifier: MIT</span>
+<span>pragma solidity ^0.8.17;</span>
+<span></span>
+<span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, <mark>a</mark>);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = target.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 37. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 0
+                "><span>// SPDX-License-Identifier: MIT</span>
+<span>pragma solidity ^0.8.17;</span>
+<span></span>
+<span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, <mark>a</mark>);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = target.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 38. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 0
+                "><span>// SPDX-License-Identifier: MIT</span>
+<span>pragma solidity ^0.8.17;</span>
+<span></span>
+<span>function other(address <mark>a</mark>, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = target.call{value: amount}("");</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 39. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 52
+                "><span></span>
+<span>        return getSender2();</span>
+<span>    }</span>
+<span></span>
+<span>    function ret2(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address d) = <mark>other</mark>(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 40. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 52
+                "><span></span>
+<span>        return getSender2();</span>
+<span>    }</span>
+<span></span>
+<span>    function ret2(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address d) = other(<mark>a2</mark>, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 41. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 52
+                "><span></span>
+<span>        return getSender2();</span>
+<span>    }</span>
+<span></span>
+<span>    function ret2(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address d) = other(<mark>a2</mark>, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 42. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 51
+                "><span>        }</span>
+<span></span>
+<span>        return getSender2();</span>
+<span>    }</span>
+<span></span>
+<span>    function ret2(address a, address <mark>a2</mark>) private pure returns (address) {</span>
+<span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 43. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 51
+                "><span>        }</span>
+<span></span>
+<span>        return getSender2();</span>
+<span>    }</span>
+<span></span>
+<span>    function <mark>ret2</mark>(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 44. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 44
+                "><span>    function getSender() private view returns (address) {</span>
+<span>        if (false) {</span>
+<span>            return foo(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                     ^^^^^^^^^^ definition */</span>
+<span>        } else if (false) {</span>
+<span>            return <mark>ret2</mark>(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                      ^^^^^^^^^^ definition */</span>
+<span>        }</span>
+<span></span>
+<span>        return getSender2();</span>
+<span>    }</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 45. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 44
+                "><span>    function getSender() private view returns (address) {</span>
+<span>        if (false) {</span>
+<span>            return foo(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                     ^^^^^^^^^^ definition */</span>
+<span>        } else if (false) {</span>
+<span>            return ret2(0x0000000000000000000000000000000000000000, <mark>msg.sender</mark>);</span>
+<span>            /*                                                      ^^^^^^^^^^ definition */</span>
+<span>        }</span>
+<span></span>
+<span>        return getSender2();</span>
+<span>    }</span></pre>
+                    </div>
+                    </div>`)
+pagesMap.set(3, String.raw`<div>
+                        <h1>Stacktrace: 3</h1>
+                        <div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  1. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 3
+                "><span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = <mark>target</mark>.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  2. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 3
+                "><span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = <mark>target</mark>.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  3. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 3
+                "><span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = <mark>target</mark>.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  4. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 2
+                "><span></span>
+<span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address <mark>target</mark>, uint amount) {</span>
+<span>    (bool sent, ) = target.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  5. <a href="#" onclick="return setFile('other_file.sol');">
+                        other_file.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 2
+                "><span></span>
+<span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function <mark>hacky</mark>(address target, uint amount) {</span>
+<span>    (bool sent, ) = target.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  6. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 69
+                "><span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        <mark>hacky</mark>(bar, bal);</span>
+<span></span>
+<span>        balances[bar] = 0;</span>
+<span>    }</span>
+<span></span>
+<span>    // Helper function to check the balance of this contract</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  7. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 69
+                "><span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(<mark>bar</mark>, bal);</span>
+<span></span>
+<span>        balances[bar] = 0;</span>
+<span>    }</span>
+<span></span>
+<span>    // Helper function to check the balance of this contract</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  8. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 69
+                "><span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(<mark>bar</mark>, bal);</span>
+<span></span>
+<span>        balances[bar] = 0;</span>
+<span>    }</span>
+<span></span>
+<span>    // Helper function to check the balance of this contract</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2>  9. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address <mark>bar</mark> = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 10. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        <mark>address bar</mark> = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 11. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = <mark>foo(sender, sender)</mark>;</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 12. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = <mark>foo</mark>(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 13. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 57
+                "><span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function <mark>foo</mark>(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 14. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 58
+                "><span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return <mark>a</mark>;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 15. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 58
+                "><span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return <mark>a</mark>;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 16. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 57
+                "><span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address <mark>a</mark>, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 17. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = <mark>foo</mark>(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 18. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = foo(<mark>sender</mark>, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 19. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 64
+                "><span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = foo(<mark>sender</mark>, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 20. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 62
+                "><span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address <mark>sender</mark> = getSender();</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 21. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 62
+                "><span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        <mark>address sender</mark> = getSender();</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 22. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 62
+                "><span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = <mark>getSender()</mark>;</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 23. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 62
+                "><span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = <mark>getSender</mark>();</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 24. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 39
+                "><span>    function getSender2() private view returns (address) {</span>
+<span>        return msg.sender;</span>
+<span>        /*     ^^^^^^^^^^ definition */</span>
+<span>    }</span>
+<span></span>
+<span>    function <mark>getSender</mark>() private view returns (address) {</span>
+<span>        if (false) {</span>
+<span>            return foo(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                     ^^^^^^^^^^ definition */</span>
+<span>        } else if (false) {</span>
+<span>            return ret2(0x0000000000000000000000000000000000000000, msg.sender);</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 25. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 48
+                "><span>        } else if (false) {</span>
+<span>            return ret2(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                      ^^^^^^^^^^ definition */</span>
+<span>        }</span>
+<span></span>
+<span>        return <mark>getSender2()</mark>;</span>
+<span>    }</span>
+<span></span>
+<span>    function ret2(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address d) = other(a2, 1);</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 26. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 48
+                "><span>        } else if (false) {</span>
+<span>            return ret2(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                      ^^^^^^^^^^ definition */</span>
+<span>        }</span>
+<span></span>
+<span>        return <mark>getSender2</mark>();</span>
+<span>    }</span>
+<span></span>
+<span>    function ret2(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address d) = other(a2, 1);</span>
+<span></span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 27. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 34
+                "><span></span>
+<span>    function deposit() public payable {</span>
+<span>        balances[msg.sender] += msg.value;</span>
+<span>    }</span>
+<span></span>
+<span>    function <mark>getSender2</mark>() private view returns (address) {</span>
+<span>        return msg.sender;</span>
+<span>        /*     ^^^^^^^^^^ definition */</span>
+<span>    }</span>
+<span></span>
+<span>    function getSender() private view returns (address) {</span></pre>
+                    </div><div style="outline-style: solid; outline-color: black; padding: 0.3rem; margin-bottom: 1rem">
+                        <div>
+                            <h2> 28. <a href="#" onclick="return setFile('contract.sol');">
+                        contract.sol
+                    </a></h2>
+                        </div>
+                        <pre style="
+                white-space: pre-wrap;
+                counter-set: line 35
+                "><span>    function deposit() public payable {</span>
+<span>        balances[msg.sender] += msg.value;</span>
+<span>    }</span>
+<span></span>
+<span>    function getSender2() private view returns (address) {</span>
+<span>        return <mark>msg.sender</mark>;</span>
+<span>        /*     ^^^^^^^^^^ definition */</span>
+<span>    }</span>
+<span></span>
+<span>    function getSender() private view returns (address) {</span>
+<span>        if (false) {</span></pre>
+                    </div>
+                    </div>`)
+                        pagesMap.set("contract.sol", String.raw`
+                    <h1>File: contract.sol</h1>
+                    <pre style="white-space: pre-wrap";><span>// SPDX-License-Identifier: MIT</span>
+<span>pragma solidity ^0.8.17;</span>
+<span></span>
+<span>import {other, hacky} from "./other_file.sol";</span>
+<span></span>
+<span>/*</span>
+<span>EtherStore is a contract where you can deposit and withdraw ETH.</span>
+<span>This contract is vulnerable to re-entrancy attack.</span>
+<span>Let's see why.</span>
+<span></span>
+<span>1. Deploy EtherStore</span>
+<span>2. Deposit 1 Ether each from Account 1 (Alice) and Account 2 (Bob) into EtherStore</span>
+<span>3. Deploy Attack with address of EtherStore</span>
+<span>4. Call Attack.attack sending 1 ether (using Account 3 (Eve)).</span>
+<span>   You will get 3 Ethers back (2 Ether stolen from Alice and Bob,</span>
+<span>   plus 1 Ether sent from this contract).</span>
+<span></span>
+<span>What happened?</span>
+<span>Attack was able to call EtherStore.withdraw multiple times before</span>
+<span>EtherStore.withdraw finished executing.</span>
+<span></span>
+<span>Here is how the functions were called</span>
+<span>- Attack.attack</span>
+<span>- EtherStore.deposit</span>
+<span>- EtherStore.withdraw</span>
+<span>- Attack fallback (receives 1 Ether)</span>
+<span>- EtherStore.withdraw</span>
+<span>- Attack.fallback (receives 1 Ether)</span>
+<span>- EtherStore.withdraw</span>
+<span>- Attack fallback (receives 1 Ether)</span>
+<span>*/</span>
+<span></span>
+<span>contract EtherStore {</span>
+<span>    mapping(address => uint) public balances;</span>
+<span></span>
+<span>    function deposit() public payable {</span>
+<span>        balances[msg.sender] += msg.value;</span>
+<span>    }</span>
+<span></span>
+<span>    function getSender2() private view returns (address) {</span>
+<span>        return msg.sender;</span>
+<span>        /*     ^^^^^^^^^^ definition */</span>
+<span>    }</span>
+<span></span>
+<span>    function getSender() private view returns (address) {</span>
+<span>        if (false) {</span>
+<span>            return foo(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                     ^^^^^^^^^^ definition */</span>
+<span>        } else if (false) {</span>
+<span>            return ret2(0x0000000000000000000000000000000000000000, msg.sender);</span>
+<span>            /*                                                      ^^^^^^^^^^ definition */</span>
+<span>        }</span>
+<span></span>
+<span>        return getSender2();</span>
+<span>    }</span>
+<span></span>
+<span>    function ret2(address a, address a2) private pure returns (address) {</span>
+<span>        (uint c, address d) = other(a2, 1);</span>
+<span></span>
+<span>        return d;</span>
+<span>    }</span>
+<span></span>
+<span>    function foo(address a, address b) private pure returns (address) {</span>
+<span>        return a;</span>
+<span>    }</span>
+<span></span>
+<span>    function withdraw() public {</span>
+<span>        address sender = getSender();</span>
+<span></span>
+<span>        address bar = foo(sender, sender);</span>
+<span></span>
+<span>        uint bal = balances[bar];</span>
+<span>        require(bal > 0);</span>
+<span></span>
+<span>        hacky(bar, bal);</span>
+<span></span>
+<span>        balances[bar] = 0;</span>
+<span>    }</span>
+<span></span>
+<span>    // Helper function to check the balance of this contract</span>
+<span>    function getBalance() public view returns (uint) {</span>
+<span>        return address(this).balance;</span>
+<span>    }</span>
+<span>}</span></pre>
+                `)
+pagesMap.set("other_file.sol", String.raw`
+                    <h1>File: other_file.sol</h1>
+                    <pre style="white-space: pre-wrap";><span>// SPDX-License-Identifier: MIT</span>
+<span>pragma solidity ^0.8.17;</span>
+<span></span>
+<span>function other(address a, uint b) pure returns (uint, address) {</span>
+<span>    return (b, a);</span>
+<span>}</span>
+<span></span>
+<span>function hacky(address target, uint amount) {</span>
+<span>    (bool sent, ) = target.call{value: amount}("");</span>
+<span>    /*              ^^^^^^ start */</span>
+<span>    require(sent, "Failed to send Ether");</span>
+<span>}</span></pre>
+                `)
+
+                        function setStacktrace(index) {
+                            document.querySelector("#stacktrace").innerHTML = pagesMap.get(index);
+                            document.querySelector("#stacktrace").style.display = "block";
+                            return false;
+                        }
+
+                        function setFile(index) {
+                            document.querySelector("#file").innerHTML = pagesMap.get(index);
+                            document.querySelector("#file").style.display = "block";
+                            return false;
+                        }
+
+                        function hideStacktrace(index) {
+                            document.querySelector("#stacktrace").style.display = "none";
+                            return false;
+                        }
+
+                        function hideFile(index) {
+                            document.querySelector("#file").style.display = "none";
+                            return false;
+                        }
+                    </script>
+                </head>
+                <body>
+                    <nav style="background: #b5b5b5;">
+                        <h2>Pages</h2>
+                        <a href="#" onclick="return setStacktrace(1);">Show stacktrace 1</a>
+<a href="#" onclick="return setStacktrace(2);">Show stacktrace 2</a>
+<a href="#" onclick="return setStacktrace(3);">Show stacktrace 3</a>
+                        <a href="#" onclick="return hideStacktrace();">Hide stacktrace</a>
+                        <br />---<br />
+                        <a href="#" onclick="return setFile('contract.sol');">Show file contract.sol</a>
+<a href="#" onclick="return setFile('other_file.sol');">Show file other_file.sol</a>
+                        <a href="#" onclick="return hideFile();">Hide file</a>
+                    </nav>
+                    
+                    <div id="content">
+                        <div id="stacktrace">No stacktrace selected</div>
+                        <div id="file">No file selected</div>
+                    </div>
+                </body>
+            </html>
+            
